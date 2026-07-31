@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "mkhl.direnv",
+    "jnoortheen.nix-ide",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-mysql"
+  ]
+}

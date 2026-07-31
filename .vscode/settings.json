@@ -1,0 +1,30 @@
+{
+  "nix.enableLanguageServer": true,
+  "nix.serverSettings": {
+    "nixd": {
+      "formatting": {
+        "command": [
+          "nixfmt"
+        ]
+      }
+    }
+  },
+  "[nix]": {
+    "editor.defaultFormatter": "jnoortheen.nix-ide",
+    "editor.formatOnSave": false
+  },
+  "files.exclude": {
+    "**/.direnv": true,
+    "**/.mysql": true,
+    "**/result": true,
+    "**/result-*": true
+  },
+  "files.watcherExclude": {
+    "**/.direnv/**": true,
+    "**/.mysql/**": true
+  },
+  "search.exclude": {
+    "**/.direnv": true,
+    "**/.mysql": true
+  }
+}
