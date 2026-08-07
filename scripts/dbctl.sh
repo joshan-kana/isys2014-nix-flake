@@ -22,7 +22,7 @@ data_dir="$state_dir/data"
 log_file="$state_dir/mysql.log"
 stdout_log="$state_dir/mysqld.stdout.log"
 project_id="$(printf '%s' "$project_root" | sha256sum | cut -c1-12)"
-run_dir="${TMPDIR:-/tmp}/isys2014-mysql-$project_id"
+run_dir="/tmp/isys2014-mysql-$project_id"
 socket_file="$run_dir/mysql.sock"
 pid_file="$run_dir/mysql.pid"
 
