@@ -31,6 +31,16 @@ jobs:
       - name: Check pure flake
         run: nix flake check
 
+      - name: Diagnose generated MySQL service
+        run: |
+          nix develop -c bash -euc '
+            mkdir -p .state/run/mysql
+            timeout 8s db-services up -t=false || status=$?
+            if [[ ${status:-0} -ne 0 && ${status:-0} -ne 124 ]]; then
+              exit "$status"
+            fi
+          '
+
       - name: Test pure development shell and MySQL workflow
         run: |
           nix develop -c bash -euc '
@@ -43,10 +53,7 @@ jobs:
             command -v lt
             command -v chk
 
-            if ! db-start; then
-              find "${TMPDIR:-/tmp}" -name process-compose-runner.log -print -exec cat {} \; 2>/dev/null || true
-              exit 1
-            fi
+            db-start
             test "$(mysql -u root -Nse "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME=\"dswork\"")" = dswork
 
             printf "%s\n" "CREATE TABLE smoke_test (id INT);" > /tmp/isys2014-smoke.sql
