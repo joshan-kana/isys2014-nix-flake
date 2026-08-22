@@ -139,4 +139,5 @@ SQLFluff itself does not parse.
 ShellCheck, rumdl, Markdown typo checks, and SQLFluff linting without modifying
 tracked files. `nix flake check --impure` verifies both the treefmt formatting
 pipeline and this read-only lint pipeline, plus the MySQL client package and SQL
-tooling checks. The same full flake check runs as the pre-commit hook.
+tooling checks. The same full flake check runs as the pre-commit hook through
+devenv's first-class `git-hooks.nix` integration.
