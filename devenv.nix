@@ -45,7 +45,7 @@
       fi
 
       file="$1"
-      database="${2:-dswork}"
+      database="''${2:-dswork}"
 
       if [[ ! -f "$file" ]]; then
         printf 'ERROR: SQL file not found: %s\n' "$file" >&2
