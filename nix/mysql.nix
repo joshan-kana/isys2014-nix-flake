@@ -16,8 +16,8 @@ let
         services.mysql.mysql = {
           enable = true;
           package = pkgs.mysql84;
-          dataDir = "$PWD/.state/mysql";
-          socketDir = "$PWD/.state/run/mysql";
+          dataDir = ''"$PWD"/.state/mysql'';
+          socketDir = ''"$PWD"/.state/run/mysql'';
           initialDatabases = [ { name = "dswork"; } ];
 
           settings.mysqld = {
