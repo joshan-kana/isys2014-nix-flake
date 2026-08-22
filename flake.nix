@@ -106,6 +106,8 @@
                             "mysql",
                             "--templater",
                             "raw",
+                            "--exclude-rules",
+                            "CP02,RF04",
                             "--disable-progress-bar",
                             str(temporary),
                         ],
@@ -365,11 +367,18 @@
               }
               ''
                 cat > assessment.sql <<'SQL'
-                SELECT 1;
+                CREATE TABLE Conference (
+                  confID CHAR(4),
+                  name VARCHAR(50),
+                  date DATE,
+                  count INT
+                );
                 source stadium.txt;
                 SQL
                 sqlfmt assessment.sql
                 sqllint assessment.sql
+                grep -Fq 'CREATE TABLE Conference' assessment.sql
+                grep -Fq 'confID' assessment.sql
                 grep -Fq 'source stadium.txt;' assessment.sql
                 touch "$out"
               '';
