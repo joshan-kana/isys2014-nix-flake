@@ -1,6 +1,6 @@
-# Nix / direnv / devenv
+# Nix / direnv / local service state
 .direnv/
-.devenv/
+.state/
 result
 result-*
 .pre-commit-config.yaml
