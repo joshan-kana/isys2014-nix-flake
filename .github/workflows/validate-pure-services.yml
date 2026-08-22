@@ -31,22 +31,13 @@ jobs:
       - name: Check pure flake
         run: nix flake check
 
-      - name: Diagnose generated MySQL service
-        run: |
-          nix develop -c bash -euc '
-            mkdir -p .state/run/mysql
-            timeout 8s db-services up -t=false || status=$?
-            if [[ ${status:-0} -ne 0 && ${status:-0} -ne 124 ]]; then
-              exit "$status"
-            fi
-          '
-
-      - name: Test pure development shell and MySQL workflow
+      - name: Test development shell and MySQL workflow
         run: |
           nix develop -c bash -euc '
             trap db-stop EXIT
 
             command -v db
+            command -v db-run
             command -v sqlfmt
             command -v sqllint
             command -v fmt
@@ -75,7 +66,7 @@ jobs:
           fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add flake.nix flake.lock README.md .envrc .gitignore .vscode
+          git add flake.nix flake.lock README.md nix .envrc .gitignore .vscode
           git commit -m 'chore: refresh pure service environment'
           git pull --rebase origin refactor/devenv-mysql
           git push origin HEAD:refactor/devenv-mysql
