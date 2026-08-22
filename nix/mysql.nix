@@ -6,12 +6,37 @@
 let
   socket = ".state/run/mysql/mysql.sock";
 
-  services = (import process-compose-flake.lib { inherit pkgs; }).makeProcessCompose {
+  enterRoot = ''
+    root="''${ISYS2014_ROOT:-$PWD}"
+    while [[ "$root" != "/" && ! -f "$root/flake.nix" ]]; do
+      root="$(dirname "$root")"
+    done
+    if [[ ! -f "$root/flake.nix" ]]; then
+      echo "ERROR: could not find flake.nix from $PWD" >&2
+      exit 1
+    fi
+    cd "$root"
+    export MYSQL_UNIX_PORT="$root/${socket}"
+    export MYSQL_HISTFILE="$root/.state/mysql_history"
+  '';
+
+  dbServices = (import process-compose-flake.lib { inherit pkgs; }).makeProcessCompose {
     name = "db-services";
     modules = [
       services-flake.processComposeModules.default
       {
-        cli.options.keep-project = true;
+        cli = {
+          options = {
+            keep-project = true;
+            no-server = false;
+            use-uds = true;
+          };
+          preHook = ''
+            ${enterRoot}
+            checksum="$(printf '%s' "$root" | ${pkgs.coreutils}/bin/cksum)"
+            export PC_SOCKET_PATH="/tmp/isys2014-pc-''${checksum%% *}.sock"
+          '';
+        };
 
         services.mysql.mysql = {
           enable = true;
@@ -31,32 +56,10 @@ let
     ];
   };
 
-  enterRoot = ''
-    root="''${ISYS2014_ROOT:-$PWD}"
-    while [[ "$root" != "/" && ! -f "$root/flake.nix" ]]; do
-      root="$(dirname "$root")"
-    done
-    if [[ ! -f "$root/flake.nix" ]]; then
-      echo "ERROR: could not find flake.nix from $PWD" >&2
-      exit 1
-    fi
-    cd "$root"
-    export MYSQL_UNIX_PORT="$root/${socket}"
-    export MYSQL_HISTFILE="$root/.state/mysql_history"
-  '';
-
   mkCommand = name: runtimeInputs: text:
     pkgs.writeShellApplication {
       inherit name runtimeInputs text;
     };
-
-  dbServices = mkCommand "db-services" [ pkgs.coreutils ] ''
-    ${enterRoot}
-    checksum="$(printf '%s' "$root" | cksum)"
-    checksum="''${checksum%% *}"
-    port="$((20000 + checksum % 30000))"
-    exec ${services}/bin/db-services --address 127.0.0.1 --port "$port" "$@"
-  '';
 
   dbStart = mkCommand "db-start" [
     dbServices
@@ -165,8 +168,9 @@ in
     dbStart
     dbStatus
     dbStop
-    services
     ;
+
+  services = dbServices;
 
   packages = [
     dbServices
