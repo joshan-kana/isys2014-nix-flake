@@ -4,9 +4,12 @@
   packages = with pkgs; [
     less
     nixd
+    nixfmt
     statix
     zip
   ];
+
+  process.manager.implementation = "process-compose";
 
   services.mysql = {
     enable = true;
@@ -28,9 +31,38 @@
 
   scripts = {
     db-start.exec = ''
-      if ! mysqladmin -u root ping --silent >/dev/null 2>&1; then
-        devenv up --mode all -d mysql >/dev/null
+      if mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+        exit 0
       fi
+
+      if process-compose process list >/dev/null 2>&1; then
+        process-compose process start mysql >/dev/null 2>&1 || true
+      else
+        process-compose up --detached mysql >/dev/null
+      fi
+
+      for _ in {1..300}; do
+        if mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+          exit 0
+        fi
+        sleep 0.1
+      done
+
+      echo "ERROR: MySQL did not become ready." >&2
+      process-compose process logs mysql --tail 50 >&2 || true
+      exit 1
+    '';
+
+    db-stop.exec = ''
+      process-compose down >/dev/null 2>&1 || true
+    '';
+
+    db-status.exec = ''
+      exec process-compose process list
+    '';
+
+    db-log.exec = ''
+      exec process-compose process logs mysql --follow
     '';
 
     db.exec = ''
@@ -57,7 +89,7 @@
     '';
 
     db-reset.exec = ''
-      devenv down >/dev/null 2>&1 || true
+      db-stop
       rm -rf -- "$MYSQL_HOME"
       db-start
       echo "MySQL reset: database dswork is ready."
