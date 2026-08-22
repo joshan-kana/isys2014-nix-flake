@@ -109,29 +109,29 @@
               ${text}
             '';
           };
-        dbCommands =
-          {
-            db = mkDbCommand "db" ''
-              ${ensureDb}
-              exec mysql -u root dswork "$@"
-            '';
-            "db-start" = mkDbCommand "db-start" ensureDb;
-            "db-run" = mkDbCommand "db-run" ''
-              (( $# >= 1 && $# <= 2 )) || { echo "Usage: db-run FILE.sql [DATABASE]" >&2; exit 2; }
-              [[ -f "$1" ]] || { printf 'ERROR: SQL file not found: %s\n' "$1" >&2; exit 1; }
-              file="$(realpath "$1")"
-              database="''${2:-dswork}"
-              ${ensureDb}
-              exec mysql -u root "$database" < "$file"
-            '';
-            "db-reset" = mkDbCommand "db-reset" ''
-              db-services down >/dev/null 2>&1 || true
-              rm -rf -- "$ISYS2014_ROOT/.state/mysql" "$ISYS2014_RUN_DIR"
-              ${ensureDb}
-              echo "MySQL reset: database dswork is ready."
-            '';
-          }
-          // lib.mapAttrs
+        dbCommands = {
+          db = mkDbCommand "db" ''
+            ${ensureDb}
+            exec mysql -u root dswork "$@"
+          '';
+          "db-start" = mkDbCommand "db-start" ensureDb;
+          "db-run" = mkDbCommand "db-run" ''
+            (( $# >= 1 && $# <= 2 )) || { echo "Usage: db-run FILE.sql [DATABASE]" >&2; exit 2; }
+            [[ -f "$1" ]] || { printf 'ERROR: SQL file not found: %s\n' "$1" >&2; exit 1; }
+            file="$(realpath "$1")"
+            database="''${2:-dswork}"
+            ${ensureDb}
+            exec mysql -u root "$database" < "$file"
+          '';
+          "db-reset" = mkDbCommand "db-reset" ''
+            db-services down >/dev/null 2>&1 || true
+            rm -rf -- "$ISYS2014_ROOT/.state/mysql" "$ISYS2014_RUN_DIR"
+            ${ensureDb}
+            echo "MySQL reset: database dswork is ready."
+          '';
+        }
+        //
+          lib.mapAttrs
             (name: args: pkgs.writeShellScriptBin name ''exec ${lib.getExe dbServices} ${args} "$@"'')
             {
               "db-stop" = "down";
