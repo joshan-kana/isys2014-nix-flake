@@ -63,7 +63,14 @@
                   enable = true;
                   config = treefmtConfig;
                 };
-                git-hooks.hooks.treefmt.enable = true;
+
+                git-hooks.hooks.nix-flake-check = {
+                  enable = true;
+                  name = "nix flake check";
+                  entry = "nix flake check --impure";
+                  language = "system";
+                  pass_filenames = false;
+                };
               }
             ];
           };
