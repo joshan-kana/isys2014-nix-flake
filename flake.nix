@@ -67,8 +67,6 @@
           mysqlDataDir = "${stateDir}/mysql";
           mysqlSocketDir = "${stateDir}/run/mysql";
           mysqlSocket = "${mysqlSocketDir}/mysql.sock";
-          processComposeDir = "${stateDir}/run/process-compose";
-          processComposeSocket = "${processComposeDir}/process-compose.sock";
 
           projectRoot = ''
             root="$PWD"
@@ -309,16 +307,28 @@
 
           serviceRunner = config.process-compose."db-services".outputs.package;
 
+          dbServices = pkgs.writeShellApplication {
+            name = "db-services";
+            runtimeInputs = [ pkgs.coreutils ];
+            text = ''
+              ${enterProjectRoot}
+              checksum="$(${pkgs.coreutils}/bin/cksum <<< "$root")"
+              checksum="''${checksum%% *}"
+              socket="/tmp/isys2014-pc-$checksum.sock"
+              exec ${serviceRunner}/bin/db-services --use-uds --unix-socket "$socket" "$@"
+            '';
+          };
+
           dbStart = pkgs.writeShellApplication {
             name = "db-start";
             runtimeInputs = [
+              dbServices
               pkgs.coreutils
               pkgs.mysql84
-              serviceRunner
             ];
             text = ''
               ${enterProjectRoot}
-              mkdir -p ${lib.escapeShellArg mysqlSocketDir} ${lib.escapeShellArg processComposeDir}
+              mkdir -p ${lib.escapeShellArg mysqlSocketDir}
 
               if mysql --socket=${lib.escapeShellArg mysqlSocket} -u root -Nse 'USE dswork' >/dev/null 2>&1; then
                 exit 0
@@ -346,10 +356,7 @@
 
           dbStop = pkgs.writeShellApplication {
             name = "db-stop";
-            runtimeInputs = [
-              pkgs.coreutils
-              serviceRunner
-            ];
+            runtimeInputs = [ dbServices ];
             text = ''
               ${enterProjectRoot}
               db-services down >/dev/null 2>&1 || true
@@ -358,10 +365,7 @@
 
           dbStatus = pkgs.writeShellApplication {
             name = "db-status";
-            runtimeInputs = [
-              pkgs.coreutils
-              serviceRunner
-            ];
+            runtimeInputs = [ dbServices ];
             text = ''
               ${enterProjectRoot}
               exec db-services process list
@@ -370,10 +374,7 @@
 
           dbLog = pkgs.writeShellApplication {
             name = "db-log";
-            runtimeInputs = [
-              pkgs.coreutils
-              serviceRunner
-            ];
+            runtimeInputs = [ dbServices ];
             text = ''
               ${enterProjectRoot}
               exec db-services process logs mysql --follow
@@ -440,10 +441,7 @@
 
           check = pkgs.writeShellApplication {
             name = "check";
-            runtimeInputs = [
-              pkgs.coreutils
-              pkgs.nix
-            ];
+            runtimeInputs = [ pkgs.nix ];
             text = ''
               ${enterProjectRoot}
               exec nix flake check "$@"
@@ -469,14 +467,6 @@
         {
           process-compose."db-services" = {
             imports = [ services-flake.processComposeModules.default ];
-
-            cli = {
-              preHook = ''
-                mkdir -p ${lib.escapeShellArg processComposeDir} ${lib.escapeShellArg mysqlSocketDir}
-                export PC_SOCKET_PATH="$PWD/${processComposeSocket}"
-              '';
-              options.use-uds = true;
-            };
 
             services.mysql.mysql = {
               enable = true;
@@ -507,7 +497,7 @@
               pkgs.statix
               pkgs.typos
               pkgs.zip
-              serviceRunner
+              dbServices
               lint
               sqlfmt
               sqllint
@@ -540,6 +530,7 @@
               sqllint
               db
               ;
+            "db-services" = dbServices;
             "db-start" = dbStart;
             "db-stop" = dbStop;
             "db-status" = dbStatus;
@@ -559,6 +550,7 @@
                 '';
             services = pkgs.runCommand "isys2014-services-check" { } ''
               test -x ${serviceRunner}/bin/db-services
+              test -x ${dbServices}/bin/db-services
               touch "$out"
             '';
             sql =
