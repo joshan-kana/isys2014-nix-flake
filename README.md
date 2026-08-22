@@ -11,7 +11,7 @@ project-specific database supervisor.
 - Unix-socket-only MySQL with TCP networking disabled
 - An automatically created `dswork` database
 - devenv-managed service configuration, readiness, and process supervision
-- `less`, `zip`, nixd, nixfmt, Statix, treefmt, and direnv support
+- `less`, `zip`, nixd, nixfmt, Statix, ShellCheck, treefmt, and direnv support
 - A read-only `nix flake check` pre-commit hook
 
 ## Start a practical folder
@@ -71,9 +71,20 @@ practical work and submission evidence.
 
 ```bash
 nix fmt
+nix run .#lint
 nix flake check --impure
 ```
 
-`nix fmt` applies nixfmt and Statix fixes through treefmt. `nix flake check` is
-read-only and verifies formatting plus the MySQL client package. The same check
-runs as the pre-commit hook.
+Convenience aliases are also available inside the development shell:
+
+```bash
+fmt    # nix fmt
+lt     # lint
+chk    # nix flake check --impure
+```
+
+`nix fmt` applies nixfmt and Statix fixes through treefmt. `nix run .#lint` runs
+read-only Statix checks over the Nix configuration and ShellCheck over the shell
+environment entrypoint. `nix flake check --impure` is read-only and verifies
+formatting, linting, and the MySQL client package. The same full check runs as the
+pre-commit hook.
