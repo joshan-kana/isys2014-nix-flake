@@ -43,7 +43,10 @@ jobs:
             command -v lt
             command -v chk
 
-            db-start
+            if ! db-start; then
+              find "${TMPDIR:-/tmp}" -name process-compose-runner.log -print -exec cat {} \; 2>/dev/null || true
+              exit 1
+            fi
             test "$(mysql -u root -Nse "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME=\"dswork\"")" = dswork
 
             printf "%s\n" "CREATE TABLE smoke_test (id INT);" > /tmp/isys2014-smoke.sql
