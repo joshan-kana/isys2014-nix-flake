@@ -207,6 +207,7 @@
           programs = {
             deadnix.enable = true;
             nixfmt.enable = true;
+            rumdl-check.enable = true;
             rumdl-format.enable = true;
             shellcheck.enable = true;
             statix.enable = true;
@@ -220,10 +221,16 @@
               nixfmt.priority = 3;
 
               rumdl-format.priority = 1;
+              rumdl-check.priority = 2;
               typos = {
                 includes = [ "*.md" ];
-                priority = 2;
+                priority = 3;
               };
+
+              shellcheck.options = [
+                "-s"
+                "bash"
+              ];
 
               sqlfluff = {
                 command = lib.getExe sqlfmt;
