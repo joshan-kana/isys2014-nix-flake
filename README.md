@@ -128,11 +128,12 @@ lt     # lint
 chk    # nix flake check --impure
 ```
 
-`nix fmt` is the write/fix path and is deliberately treefmt-first: treefmt
-coordinates Statix fixes, Deadnix, nixfmt, rumdl formatting, Markdown typo fixes,
-ShellCheck, MySQL-aware SQL formatting, and SQLFluff linting. The SQL stages use a
-small compatibility wrapper only because assessment command files contain MySQL
-client `SOURCE`/`\.` directives that SQLFluff itself does not parse.
+`nix fmt` is the write/fix path and is deliberately treefmt-first. Treefmt
+coordinates Statix fixes, Deadnix, nixfmt, rumdl formatting and lint/fixes,
+Markdown typo fixes, ShellCheck, MySQL-aware SQL formatting, and SQLFluff
+linting. The SQL stages use a small compatibility wrapper only because
+assessment command files contain MySQL client `SOURCE`/`\.` directives that
+SQLFluff itself does not parse.
 
 `nix run .#lint` is the read-only counterpart and runs Statix, Deadnix,
 ShellCheck, rumdl, Markdown typo checks, and SQLFluff linting without modifying
