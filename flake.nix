@@ -146,18 +146,18 @@
             esac
           '';
         };
-        dbPackages = lib.mapAttrs (
-          name: command:
-          pkgs.writeShellScriptBin name ''exec ${lib.getExe dbctl} ${command} "$@"''
-        ) {
-          db = "shell";
-          "db-start" = "start";
-          "db-stop" = "stop";
-          "db-status" = "status";
-          "db-log" = "log";
-          "db-run" = "run";
-          "db-reset" = "reset";
-        };
+        dbPackages =
+          lib.mapAttrs
+            (name: command: pkgs.writeShellScriptBin name ''exec ${lib.getExe dbctl} ${command} "$@"'')
+            {
+              db = "shell";
+              "db-start" = "start";
+              "db-stop" = "stop";
+              "db-status" = "status";
+              "db-log" = "log";
+              "db-run" = "run";
+              "db-reset" = "reset";
+            };
 
         sqlRunner = pkgs.writeShellApplication {
           name = "isys2014-sql";
@@ -260,29 +260,32 @@
             ${lib.getExe package}
             touch "$out"
           '';
-        sqlCheck = pkgs.runCommand "isys2014-sql-check" {
-          nativeBuildInputs = [
-            pkgs.gnugrep
-            sqlfmt
-            sqllint
-          ];
-        } ''
-          cat > assessment.sql <<'SQL'
-          CREATE TABLE Conference (
-            confID CHAR(4),
-            name VARCHAR(50),
-            date DATE,
-            count INT
-          );
-          source stadium.txt;
-          SQL
-          sqlfmt assessment.sql
-          sqllint assessment.sql
-          grep -Fqx 'source stadium.txt;' assessment.sql
-          grep -Fq Conference assessment.sql
-          grep -Fq confID assessment.sql
-          touch "$out"
-        '';
+        sqlCheck =
+          pkgs.runCommand "isys2014-sql-check"
+            {
+              nativeBuildInputs = [
+                pkgs.gnugrep
+                sqlfmt
+                sqllint
+              ];
+            }
+            ''
+              cat > assessment.sql <<'SQL'
+              CREATE TABLE Conference (
+                confID CHAR(4),
+                name VARCHAR(50),
+                date DATE,
+                count INT
+              );
+              source stadium.txt;
+              SQL
+              sqlfmt assessment.sql
+              sqllint assessment.sql
+              grep -Fqx 'source stadium.txt;' assessment.sql
+              grep -Fq Conference assessment.sql
+              grep -Fq confID assessment.sql
+              touch "$out"
+            '';
 
         preCommit = pre-commit-hooks.lib.${system}.run {
           src = self;
@@ -294,9 +297,7 @@
             pass_filenames = false;
           };
         };
-        mkAlias =
-          alias: package:
-          pkgs.writeShellScriptBin alias ''exec ${lib.getExe package} "$@"'';
+        mkAlias = alias: package: pkgs.writeShellScriptBin alias ''exec ${lib.getExe package} "$@"'';
       in
       {
         devShells.default = pkgs.mkShell {
