@@ -4,13 +4,13 @@
     {
       "label": "Database: Open MySQL shell",
       "type": "shell",
-      "command": "db-shell",
+      "command": "db",
       "problemMatcher": []
     },
     {
       "label": "Database: Run current SQL file",
       "type": "shell",
-      "command": "db-run ${file}",
+      "command": "db-run \"${file}\"",
       "problemMatcher": []
     },
     {
@@ -20,15 +20,9 @@
       "problemMatcher": []
     },
     {
-      "label": "Lint: Statix and ShellCheck",
-      "type": "shell",
-      "command": "nix run .#lint",
-      "problemMatcher": []
-    },
-    {
       "label": "Check: everything",
       "type": "shell",
-      "command": "nix flake check",
+      "command": "nix flake check --impure",
       "problemMatcher": [],
       "group": {
         "kind": "build",
