@@ -24,7 +24,7 @@
       ...
     }:
     let
-      lib = nixpkgs.lib;
+      inherit (nixpkgs) lib;
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
@@ -40,7 +40,9 @@
         ".direnv/**"
         "unit_materials/**"
       ];
-      rgExcludeArgs = lib.concatMapStringsSep " " (pattern: "-g ${lib.escapeShellArg "!${pattern}"}") globalExcludes;
+      rgExcludeArgs = lib.concatMapStringsSep " " (
+        pattern: "-g ${lib.escapeShellArg "!${pattern}"}"
+      ) globalExcludes;
 
       sqlToolFor =
         system:
@@ -220,8 +222,7 @@
         };
 
       treefmtFor =
-        system:
-        treefmt-nix.lib.evalModule nixpkgs.legacyPackages.${system} (treefmtConfigFor system);
+        system: treefmt-nix.lib.evalModule nixpkgs.legacyPackages.${system} (treefmtConfigFor system);
 
       lintFor =
         system:
