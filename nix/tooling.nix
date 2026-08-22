@@ -8,7 +8,7 @@
   sqllint,
 }:
 let
-  lib = pkgs.lib;
+  inherit (pkgs) lib;
   excludeArgs = lib.concatMapStringsSep " " (
     pattern: "-g ${lib.escapeShellArg "!${pattern}"}"
   ) globalExcludes;
@@ -114,7 +114,8 @@ let
     };
   };
 
-  runCheck = package:
+  runCheck =
+    package:
     pkgs.runCommand "isys2014-${package.name}-check" { nativeBuildInputs = [ package ]; } ''
       cp -R ${self} source
       chmod -R u+w source

@@ -33,7 +33,7 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        lib = pkgs.lib;
+        inherit (pkgs) lib;
 
         # One exclusion list for both formatting and read-only linting.
         globalExcludes = [
@@ -57,7 +57,8 @@
           inherit (sql) sqlfmt sqllint;
         };
 
-        mkAlias = alias: package:
+        mkAlias =
+          alias: package:
           pkgs.writeShellScriptBin alias ''
             exec ${lib.getExe package} "$@"
           '';
@@ -81,7 +82,9 @@
             tooling.check
             sql.sqlfmt
             sql.sqllint
-          ] ++ db.packages ++ [
+          ]
+          ++ db.packages
+          ++ [
             (mkAlias "fmt" tooling.treefmt.config.build.wrapper)
             (mkAlias "lt" tooling.lint)
             (mkAlias "chk" tooling.check)
@@ -116,7 +119,7 @@
           formatting = tooling.treefmt.config.build.check self;
           lint = tooling.runCheck tooling.lint;
           sql = sql.check;
-          services = db.services;
+          inherit (db) services;
         };
       }
     )
