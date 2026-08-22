@@ -5,6 +5,7 @@
     less
     nixd
     nixfmt
+    shellcheck
     statix
     zip
   ];
