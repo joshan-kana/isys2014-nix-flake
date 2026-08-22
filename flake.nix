@@ -52,8 +52,6 @@
           ...
         }:
         let
-          # Single source of truth for files/directories owned by the environment
-          # or supplied by the lecturer. Add exceptional supplied files here.
           globalExcludes = [
             ".direnv/**"
             ".state/**"
@@ -234,19 +232,16 @@
                 statix.priority = 1;
                 deadnix.priority = 2;
                 nixfmt.priority = 3;
-
                 rumdl-format.priority = 1;
                 rumdl-check.priority = 2;
                 typos = {
                   includes = [ "*.md" ];
                   priority = 3;
                 };
-
                 shellcheck.options = [
                   "-s"
                   "bash"
                 ];
-
                 sqlfluff = {
                   command = lib.getExe sqlfmt;
                   includes = [ "*.sql" ];
@@ -314,8 +309,8 @@
               ${enterProjectRoot}
               checksum="$(${pkgs.coreutils}/bin/cksum <<< "$root")"
               checksum="''${checksum%% *}"
-              socket="/tmp/isys2014-pc-$checksum.sock"
-              exec ${serviceRunner}/bin/db-services --use-uds --unix-socket "$socket" "$@"
+              port="$((20000 + checksum % 30000))"
+              exec ${serviceRunner}/bin/db-services --address 127.0.0.1 --port "$port" "$@"
             '';
           };
 
@@ -407,15 +402,12 @@
                 echo "Usage: db-run FILE.sql [DATABASE]" >&2
                 exit 2
               fi
-
               file="$1"
               database="''${2:-dswork}"
-
               if [[ ! -f "$file" ]]; then
                 printf 'ERROR: SQL file not found: %s\n' "$file" >&2
                 exit 1
               fi
-
               file="$(realpath "$file")"
               ${enterProjectRoot}
               db-start
@@ -467,6 +459,7 @@
         {
           process-compose."db-services" = {
             imports = [ services-flake.processComposeModules.default ];
+            cli.options.keep-project = true;
 
             services.mysql.mysql = {
               enable = true;
