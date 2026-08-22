@@ -103,7 +103,7 @@ let
     text = ''exec pre-commit run nix-flake-check "$@"'';
   };
 
-  preCommit = pre-commit-hooks.lib.${pkgs.system}.run {
+  preCommit = pre-commit-hooks.lib.${pkgs.stdenv.hostPlatform.system}.run {
     src = self;
     hooks.nix-flake-check = {
       enable = true;
