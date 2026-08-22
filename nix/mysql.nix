@@ -27,7 +27,6 @@ let
       {
         cli = {
           options = {
-            keep-project = true;
             no-server = false;
             use-uds = true;
           };
@@ -76,7 +75,7 @@ let
       db-services process start mysql >/dev/null 2>&1 || true
       db-services process start mysql-configure >/dev/null 2>&1 || true
     else
-      db-services up --detached >/dev/null
+      db-services up --keep-project --detached >/dev/null
     fi
 
     for _ in {1..300}; do
@@ -87,7 +86,9 @@ let
     done
 
     echo "ERROR: MySQL did not become ready." >&2
+    db-services process list >&2 || true
     db-services process logs mysql --tail 50 >&2 || true
+    db-services process logs mysql-configure --tail 50 >&2 || true
     exit 1
   '';
 
