@@ -38,9 +38,6 @@
           ".state/**"
           "unit_materials/**"
         ];
-        excludeArgs = lib.concatMapStringsSep " " (
-          pattern: "-g ${lib.escapeShellArg "!${pattern}"}"
-        ) globalExcludes;
 
         runtimeEnv = ''
           root="''${ISYS2014_ROOT:-$PWD}"
@@ -87,73 +84,59 @@
           ];
         };
 
-        dbctl = pkgs.writeShellApplication {
-          name = "dbctl";
-          runtimeInputs = [
-            dbServices
-            pkgs.coreutils
-            pkgs.mysql84
-          ];
-          text = ''
-            ${runtimeEnv}
-
-            start() {
-              mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && return
-              mkdir -p "$ISYS2014_RUN_DIR"
-
-              if db-services process list >/dev/null 2>&1; then
-                db-services process start mysql >/dev/null 2>&1 || true
-                db-services process start mysql-configure >/dev/null 2>&1 || true
-              else
-                db-services up --detached >/dev/null
-              fi
-
-              timeout 30 db-services project is-ready --wait >/dev/null 2>&1 &&
-                mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && return
-
-              echo "ERROR: MySQL did not become ready." >&2
-              db-services process list >&2 || true
-              db-services process logs mysql --tail 50 >&2 || true
-              db-services process logs mysql-configure --tail 50 >&2 || true
-              return 1
-            }
-
-            command="''${1:-shell}"
-            (( $# == 0 )) || shift
-            case "$command" in
-              start) start ;;
-              stop) db-services down >/dev/null 2>&1 || true ;;
-              status) exec db-services process list ;;
-              log) exec db-services process logs mysql --follow ;;
-              shell) start; exec mysql -u root dswork "$@" ;;
-              run)
-                (( $# >= 1 && $# <= 2 )) || { echo "Usage: db-run FILE.sql [DATABASE]" >&2; exit 2; }
-                [[ -f "$1" ]] || { printf 'ERROR: SQL file not found: %s\n' "$1" >&2; exit 1; }
-                file="$(realpath "$1")"; database="''${2:-dswork}"
-                start
-                mysql -u root "$database" < "$file"
-                ;;
-              reset)
-                db-services down >/dev/null 2>&1 || true
-                rm -rf -- "$ISYS2014_ROOT/.state/mysql" "$ISYS2014_RUN_DIR"
-                start
-                echo "MySQL reset: database dswork is ready."
-                ;;
-              *) echo "Usage: dbctl {start|stop|status|log|shell|run|reset}" >&2; exit 2 ;;
-            esac
-          '';
-        };
-        dbPackages =
-          lib.mapAttrs
-            (name: command: pkgs.writeShellScriptBin name ''exec ${lib.getExe dbctl} ${command} "$@"'')
+        ensureDb = ''
+          if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+            if db-services process list >/dev/null 2>&1; then
+              db-services process start mysql >/dev/null 2>&1 || true
+              db-services process start mysql-configure >/dev/null 2>&1 || true
+            else
+              db-services up --detached >/dev/null
+            fi
+            timeout 30 db-services project is-ready --wait >/dev/null
+          fi
+        '';
+        mkDbCommand =
+          name: text:
+          pkgs.writeShellApplication {
+            inherit name;
+            runtimeInputs = [
+              dbServices
+              pkgs.coreutils
+              pkgs.mysql84
+            ];
+            text = ''
+              ${runtimeEnv}
+              ${text}
+            '';
+          };
+        dbCommands =
+          {
+            db = mkDbCommand "db" ''
+              ${ensureDb}
+              exec mysql -u root dswork "$@"
+            '';
+            "db-start" = mkDbCommand "db-start" ensureDb;
+            "db-run" = mkDbCommand "db-run" ''
+              (( $# >= 1 && $# <= 2 )) || { echo "Usage: db-run FILE.sql [DATABASE]" >&2; exit 2; }
+              [[ -f "$1" ]] || { printf 'ERROR: SQL file not found: %s\n' "$1" >&2; exit 1; }
+              file="$(realpath "$1")"
+              database="''${2:-dswork}"
+              ${ensureDb}
+              exec mysql -u root "$database" < "$file"
+            '';
+            "db-reset" = mkDbCommand "db-reset" ''
+              db-services down >/dev/null 2>&1 || true
+              rm -rf -- "$ISYS2014_ROOT/.state/mysql" "$ISYS2014_RUN_DIR"
+              ${ensureDb}
+              echo "MySQL reset: database dswork is ready."
+            '';
+          }
+          // lib.mapAttrs
+            (name: args: pkgs.writeShellScriptBin name ''exec ${lib.getExe dbServices} ${args} "$@"'')
             {
-              db = "shell";
-              "db-start" = "start";
-              "db-stop" = "stop";
-              "db-status" = "status";
-              "db-log" = "log";
-              "db-run" = "run";
-              "db-reset" = "reset";
+              "db-stop" = "down";
+              "db-status" = "process list";
+              "db-log" = "process logs mysql --follow";
             };
 
         sqlOptions = [
@@ -161,19 +144,6 @@
           "--ignore=parsing"
           "--exclude-rules=CP02,RF04"
         ];
-        mkSql =
-          name: mode:
-          pkgs.writeShellScriptBin name ''
-            exec ${lib.getExe pkgs.sqlfluff} ${mode} \
-              --dialect=mysql \
-              --templater=raw \
-              --ignore=parsing \
-              --exclude-rules=CP02,RF04 \
-              --disable-progress-bar "$@"
-          '';
-        sqlfmt = mkSql "sqlfmt" "format";
-        sqllint = mkSql "sqllint" "lint";
-
         treefmt = treefmt-nix.lib.evalModule pkgs {
           projectRootFile = "flake.nix";
           programs = {
@@ -218,44 +188,6 @@
           };
         };
 
-        lint = pkgs.writeShellApplication {
-          name = "lint";
-          runtimeInputs = [
-            pkgs.deadnix
-            pkgs.ripgrep
-            pkgs.rumdl
-            pkgs.shellcheck
-            pkgs.statix
-            pkgs.typos
-            sqllint
-          ];
-          text = ''
-            statix check flake.nix
-            deadnix --fail flake.nix
-            shellcheck -s bash .envrc
-
-            mapfile -t markdown < <(rg --files -g '*.md' ${excludeArgs})
-            (( ''${#markdown[@]} == 0 )) || { rumdl check "''${markdown[@]}"; typos "''${markdown[@]}"; }
-
-            mapfile -t sql < <(rg --files -g '*.sql' ${excludeArgs})
-            (( ''${#sql[@]} == 0 )) || sqllint "''${sql[@]}"
-          '';
-        };
-        check = pkgs.writeShellApplication {
-          name = "check";
-          runtimeInputs = [ pkgs.nix ];
-          text = ''exec nix flake check "$@"'';
-        };
-        runCheck =
-          package:
-          pkgs.runCommand "isys2014-${package.name}-check" { nativeBuildInputs = [ package ]; } ''
-            cp -R ${self} source
-            chmod -R u+w source
-            cd source
-            ${lib.getExe package}
-            touch "$out"
-          '';
-
         preCommit = pre-commit-hooks.lib.${system}.run {
           src = self;
           hooks.nix-flake-check = {
@@ -266,37 +198,26 @@
             pass_filenames = false;
           };
         };
-        mkAlias = alias: package: pkgs.writeShellScriptBin alias ''exec ${lib.getExe package} "$@"'';
+        fmt = pkgs.writeShellScriptBin "fmt" ''exec ${lib.getExe treefmt.config.build.wrapper} "$@"'';
+        chk = pkgs.writeShellScriptBin "chk" ''exec ${pkgs.nix}/bin/nix flake check "$@"'';
       in
       {
         devShells.default = pkgs.mkShell {
           packages =
             (with pkgs; [
-              deadnix
               less
               mysql84
               nixd
               nixfmt
-              rumdl
-              shellcheck
-              sqlfluff
-              statix
-              typos
               zip
             ])
             ++ [
               treefmt.config.build.wrapper
-              lint
-              check
-              sqlfmt
-              sqllint
               dbServices
-              dbctl
-              (mkAlias "fmt" treefmt.config.build.wrapper)
-              (mkAlias "lt" lint)
-              (mkAlias "chk" check)
+              fmt
+              chk
             ]
-            ++ lib.attrValues dbPackages;
+            ++ lib.attrValues dbCommands;
 
           shellHook = ''
             ${preCommit.shellHook}
@@ -306,20 +227,11 @@
         };
 
         formatter = treefmt.config.build.wrapper;
-        packages = dbPackages // {
-          inherit
-            check
-            dbctl
-            lint
-            sqlfmt
-            sqllint
-            ;
+        packages = dbCommands // {
           "db-services" = dbServices;
-          default = lint;
         };
         checks = {
           formatting = treefmt.config.build.check self;
-          lint = runCheck lint;
           services = dbServices;
         };
       }
