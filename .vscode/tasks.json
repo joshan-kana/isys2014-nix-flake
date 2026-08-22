@@ -20,6 +20,12 @@
       "problemMatcher": []
     },
     {
+      "label": "Lint: Statix and ShellCheck",
+      "type": "shell",
+      "command": "nix run .#lint",
+      "problemMatcher": []
+    },
+    {
       "label": "Check: everything",
       "type": "shell",
       "command": "nix flake check --impure",
