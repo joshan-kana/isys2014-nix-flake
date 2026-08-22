@@ -3,6 +3,7 @@
     "mkhl.direnv",
     "jnoortheen.nix-ide",
     "mtxr.sqltools",
-    "mtxr.sqltools-driver-mysql"
+    "mtxr.sqltools-driver-mysql",
+    "ms-vscode-remote.remote-ssh"
   ]
 }
