@@ -14,13 +14,25 @@
       "problemMatcher": []
     },
     {
+      "label": "SQL: Format current file",
+      "type": "shell",
+      "command": "sqlfmt \"${file}\"",
+      "problemMatcher": []
+    },
+    {
+      "label": "SQL: Lint current file",
+      "type": "shell",
+      "command": "sqllint \"${file}\"",
+      "problemMatcher": []
+    },
+    {
       "label": "Format: all",
       "type": "shell",
       "command": "nix fmt",
       "problemMatcher": []
     },
     {
-      "label": "Lint: Statix and ShellCheck",
+      "label": "Lint: all",
       "type": "shell",
       "command": "nix run .#lint",
       "problemMatcher": []
