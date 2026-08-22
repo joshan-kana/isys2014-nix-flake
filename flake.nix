@@ -146,35 +146,30 @@
             esac
           '';
         };
-        dbPackages =
-          lib.mapAttrs
-            (name: command: pkgs.writeShellScriptBin name ''exec ${lib.getExe dbctl} ${command} "$@"'')
-            {
-              db = "shell";
-              "db-start" = "start";
-              "db-stop" = "stop";
-              "db-status" = "status";
-              "db-log" = "log";
-              "db-run" = "run";
-              "db-reset" = "reset";
-            };
-
-        sqlRunner = pkgs.writeShellApplication {
-          name = "isys2014-sql";
-          runtimeInputs = [
-            pkgs.python3
-            pkgs.sqlfluff
-          ];
-          text = ''exec python3 ${./scripts/sqlfluff-wrapper.py} "$@"'';
+        dbPackages = lib.mapAttrs (
+          name: command:
+          pkgs.writeShellScriptBin name ''exec ${lib.getExe dbctl} ${command} "$@"''
+        ) {
+          db = "shell";
+          "db-start" = "start";
+          "db-stop" = "stop";
+          "db-status" = "status";
+          "db-log" = "log";
+          "db-run" = "run";
+          "db-reset" = "reset";
         };
+
         mkSql =
           name: mode:
           pkgs.writeShellApplication {
             inherit name;
-            runtimeInputs = [ sqlRunner ];
+            runtimeInputs = [
+              pkgs.python3
+              pkgs.sqlfluff
+            ];
             text = ''
               (( $# )) || { echo "Usage: ${name} FILE.sql [...]" >&2; exit 2; }
-              exec isys2014-sql ${mode} "$@"
+              exec python3 ${./scripts/sqlfluff-wrapper.py} ${mode} "$@"
             '';
           };
         sqlfmt = mkSql "sqlfmt" "format";
@@ -237,7 +232,7 @@
             statix check flake.nix
             deadnix --fail flake.nix
             shellcheck -s bash .envrc
-            python3 -m py_compile scripts/sqlfluff-wrapper.py
+            python3 -c 'from pathlib import Path; p=Path("scripts/sqlfluff-wrapper.py"); compile(p.read_text(encoding="utf-8"), str(p), "exec")'
 
             mapfile -t markdown < <(rg --files -g '*.md' ${excludeArgs})
             (( ''${#markdown[@]} == 0 )) || { rumdl check "''${markdown[@]}"; typos "''${markdown[@]}"; }
@@ -260,32 +255,29 @@
             ${lib.getExe package}
             touch "$out"
           '';
-        sqlCheck =
-          pkgs.runCommand "isys2014-sql-check"
-            {
-              nativeBuildInputs = [
-                pkgs.gnugrep
-                sqlfmt
-                sqllint
-              ];
-            }
-            ''
-              cat > assessment.sql <<'SQL'
-              CREATE TABLE Conference (
-                confID CHAR(4),
-                name VARCHAR(50),
-                date DATE,
-                count INT
-              );
-              source stadium.txt;
-              SQL
-              sqlfmt assessment.sql
-              sqllint assessment.sql
-              grep -Fqx 'source stadium.txt;' assessment.sql
-              grep -Fq Conference assessment.sql
-              grep -Fq confID assessment.sql
-              touch "$out"
-            '';
+        sqlCheck = pkgs.runCommand "isys2014-sql-check" {
+          nativeBuildInputs = [
+            pkgs.gnugrep
+            sqlfmt
+            sqllint
+          ];
+        } ''
+          cat > assessment.sql <<'SQL'
+          CREATE TABLE Conference (
+            confID CHAR(4),
+            name VARCHAR(50),
+            date DATE,
+            count INT
+          );
+          source stadium.txt;
+          SQL
+          sqlfmt assessment.sql
+          sqllint assessment.sql
+          grep -Fqx 'source stadium.txt;' assessment.sql
+          grep -Fq Conference assessment.sql
+          grep -Fq confID assessment.sql
+          touch "$out"
+        '';
 
         preCommit = pre-commit-hooks.lib.${system}.run {
           src = self;
@@ -297,7 +289,9 @@
             pass_filenames = false;
           };
         };
-        mkAlias = alias: package: pkgs.writeShellScriptBin alias ''exec ${lib.getExe package} "$@"'';
+        mkAlias =
+          alias: package:
+          pkgs.writeShellScriptBin alias ''exec ${lib.getExe package} "$@"'';
       in
       {
         devShells.default = pkgs.mkShell {
