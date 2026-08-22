@@ -15,10 +15,6 @@
     enable = true;
     package = pkgs.mysql84;
 
-    initialDatabases = [
-      { name = "dswork"; }
-    ];
-
     settings.mysqld = {
       "skip-networking" = true;
       "skip-log-bin" = true;
@@ -42,7 +38,8 @@
       fi
 
       for _ in {1..300}; do
-        if mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+        if mysqladmin -u root ping --silent >/dev/null 2>&1; then
+          mysql -u root --execute='CREATE DATABASE IF NOT EXISTS dswork;'
           exit 0
         fi
         sleep 0.1
