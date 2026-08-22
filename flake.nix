@@ -200,6 +200,7 @@
         system:
         let
           sqlfmt = sqlfmtFor system;
+          sqllint = sqllintFor system;
         in
         {
           projectRootFile = "flake.nix";
@@ -207,7 +208,9 @@
             deadnix.enable = true;
             nixfmt.enable = true;
             rumdl-format.enable = true;
+            shellcheck.enable = true;
             statix.enable = true;
+            typos.enable = true;
           };
           settings = {
             global.excludes = globalExcludes;
@@ -215,9 +218,22 @@
               statix.priority = 1;
               deadnix.priority = 2;
               nixfmt.priority = 3;
+
+              rumdl-format.priority = 1;
+              typos = {
+                includes = [ "*.md" ];
+                priority = 2;
+              };
+
               sqlfluff = {
                 command = lib.getExe sqlfmt;
                 includes = [ "*.sql" ];
+                priority = 1;
+              };
+              sqlfluff-lint = {
+                command = lib.getExe sqllint;
+                includes = [ "*.sql" ];
+                priority = 2;
               };
             };
           };
