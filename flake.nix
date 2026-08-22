@@ -47,7 +47,6 @@
           export ISYS2014_ROOT="$root"
           export ISYS2014_RUN_DIR="/tmp/isys2014-''${id%% *}"
           export MYSQL_UNIX_PORT="$ISYS2014_RUN_DIR/mysql.sock"
-          export MYSQL_HISTFILE="$root/.state/mysql_history"
         '';
 
         mysqlServices = (import process-compose-flake.lib { inherit pkgs; }).makeProcessCompose {
@@ -56,6 +55,7 @@
             services-flake.processComposeModules.default
             {
               cli = {
+                environment.PC_SOCKET_PATH = "$ISYS2014_RUN_DIR/process-compose.sock";
                 options = {
                   no-server = false;
                   use-uds = true;
@@ -64,7 +64,6 @@
                   ${runtimeEnv}
                   mkdir -p "$ISYS2014_RUN_DIR"
                   cd "$ISYS2014_ROOT"
-                  export PC_SOCKET_PATH="$ISYS2014_RUN_DIR/process-compose.sock"
                 '';
               };
               services.mysql.mysql = {
@@ -181,7 +180,6 @@
         };
 
         formatter = treefmt.config.build.wrapper;
-        packages.mysql-services = mysqlServices;
         checks = {
           formatting = treefmt.config.build.check self;
           services = mysqlServices;
