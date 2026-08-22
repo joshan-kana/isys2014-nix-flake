@@ -11,7 +11,10 @@ project-specific database supervisor.
 - Unix-socket-only MySQL with TCP networking disabled
 - An automatically created `dswork` database
 - devenv-managed service configuration, readiness, and process supervision
-- `less`, `zip`, nixd, nixfmt, Statix, ShellCheck, treefmt, and direnv support
+- MySQL-aware SQLFluff formatting and linting for assessment/practical `.sql`
+  files
+- nixfmt, Statix, Deadnix, ShellCheck, rumdl, typos, treefmt, nixd, and direnv
+- SQLTools/MySQL and Draw.io VS Code recommendations for SQL and ER modelling
 - A read-only `nix flake check` pre-commit hook
 
 ## Start a practical folder
@@ -32,8 +35,9 @@ packages and inputs are still pinned by `flake.lock`.
 
 ## VS Code and Remote Development
 
-Install the recommended VS Code extensions for this repository, including
-Remote-SSH when opening the practical through an SSH remote host.
+Install the recommended VS Code extensions for this repository. They include
+SQLTools with its MySQL driver, Draw.io for ER diagrams, and Remote-SSH when
+opening the practical through an SSH remote host.
 
 If you also want your normal local extensions available in the remote window,
 run `Remote: Install Local Extensions in 'SSH: <host>'`, choose **Select All**,
@@ -67,6 +71,46 @@ process-compose and keeps its runtime socket separate from the persistent state.
 SQL files, command files, and captured `.out` files remain trackable for
 practical work and submission evidence.
 
+## SQL support
+
+`.sql` files are first-class source files. SQLFluff runs in the MySQL dialect and
+raw templater mode so both formatting and linting understand the SQL used in the
+unit.
+
+```bash
+sqlfmt assessment.sql       # Format one or more SQL files
+sqllint assessment.sql      # Read-only lint for one or more SQL files
+nix run .#sqlfmt -- file.sql
+nix run .#sqllint -- file.sql
+```
+
+`nix fmt` also formats tracked `.sql` files and `nix run .#lint` lints them.
+MySQL client-only `SOURCE file` and `\. file` directives are preserved unchanged
+while SQLFluff processes the surrounding SQL. This supports command files such as
+the practical-test submissions without weakening normal SQL parsing and linting.
+
+Formatting/linting does not replace actually running the SQL. Use `db-run` or the
+interactive `db` client to verify schema, data, constraints, procedures, triggers,
+and other behaviour against MySQL itself.
+
+## Formatting and linting exclusions
+
+`flake.nix` contains one `globalExcludes` list used by both treefmt and the
+read-only lint runner. Environment state and lecturer material are excluded by
+default:
+
+```nix
+globalExcludes = [
+  ".devenv/**"
+  ".direnv/**"
+  "unit_materials/**"
+];
+```
+
+If supplied lecturer code does not pass the project checks, add its path or glob
+to this list once, for example `"provided_query.sql"` or `"provided/**"`. The
+same exclusion then applies to formatting and linting.
+
 ## Development commands
 
 ```bash
@@ -83,8 +127,9 @@ lt     # lint
 chk    # nix flake check --impure
 ```
 
-`nix fmt` applies nixfmt and Statix fixes through treefmt. `nix run .#lint` runs
-read-only Statix checks over the Nix configuration and ShellCheck over the shell
-environment entrypoint. `nix flake check --impure` is read-only and verifies
-formatting, linting, and the MySQL client package. The same full check runs as the
-pre-commit hook.
+`nix fmt` is the write/fix path: treefmt coordinates Statix, Deadnix, nixfmt,
+rumdl, and MySQL-aware SQL formatting. `nix run .#lint` is read-only and runs
+Statix, Deadnix, ShellCheck, rumdl, typo checks for Markdown, and SQLFluff linting.
+`nix flake check --impure` verifies formatting, linting, the MySQL client package,
+and SQL tooling including preservation of MySQL `SOURCE` directives. The same
+full check runs as the pre-commit hook.
