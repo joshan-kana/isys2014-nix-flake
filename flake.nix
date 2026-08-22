@@ -50,8 +50,8 @@
           export MYSQL_HISTFILE="$root/.state/mysql_history"
         '';
 
-        dbServices = (import process-compose-flake.lib { inherit pkgs; }).makeProcessCompose {
-          name = "db-services";
+        mysqlServices = (import process-compose-flake.lib { inherit pkgs; }).makeProcessCompose {
+          name = "mysql-services";
           modules = [
             services-flake.processComposeModules.default
             {
@@ -84,65 +84,14 @@
           ];
         };
 
-        ensureDb = ''
-          if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
-            if db-services process list >/dev/null 2>&1; then
-              db-services process start mysql >/dev/null 2>&1 || true
-              db-services process start mysql-configure >/dev/null 2>&1 || true
-            else
-              db-services up --detached >/dev/null
-            fi
-            timeout 30 db-services project is-ready --wait >/dev/null
-          fi
-        '';
-        mkDbCommand =
-          name: text:
-          pkgs.writeShellApplication {
-            inherit name;
-            runtimeInputs = [
-              dbServices
-              pkgs.coreutils
-              pkgs.mysql84
-            ];
-            text = ''
-              ${runtimeEnv}
-              ${text}
-            '';
-          };
-        dbCommands = {
-          db = mkDbCommand "db" ''
-            ${ensureDb}
-            exec mysql -u root dswork "$@"
-          '';
-          "db-start" = mkDbCommand "db-start" ensureDb;
-          "db-run" = mkDbCommand "db-run" ''
-            (( $# >= 1 && $# <= 2 )) || { echo "Usage: db-run FILE.sql [DATABASE]" >&2; exit 2; }
-            [[ -f "$1" ]] || { printf 'ERROR: SQL file not found: %s\n' "$1" >&2; exit 1; }
-            file="$(realpath "$1")"
-            database="''${2:-dswork}"
-            ${ensureDb}
-            exec mysql -u root "$database" < "$file"
-          '';
-          "db-reset" = mkDbCommand "db-reset" ''
-            db-services down >/dev/null 2>&1 || true
-            rm -rf -- "$ISYS2014_ROOT/.state/mysql" "$ISYS2014_RUN_DIR"
-            ${ensureDb}
-            echo "MySQL reset: database dswork is ready."
-          '';
-        }
-        //
-          lib.mapAttrs
-            (name: args: pkgs.writeShellScriptBin name ''exec ${lib.getExe dbServices} ${args} "$@"'')
-            {
-              "db-stop" = "down";
-              "db-status" = "process list";
-              "db-log" = "process logs mysql --follow";
-            };
-
         sqlOptions = [
           "--templater=raw"
           "--ignore=parsing"
           "--exclude-rules=CP02,RF04"
+        ];
+        markdownOptions = [
+          "--disable"
+          "MD013"
         ];
         treefmt = treefmt-nix.lib.evalModule pkgs {
           projectRootFile = "flake.nix";
@@ -166,8 +115,14 @@
               statix.priority = 1;
               deadnix.priority = 2;
               nixfmt.priority = 3;
-              rumdl-format.priority = 1;
-              rumdl-check.priority = 2;
+              rumdl-format = {
+                options = markdownOptions;
+                priority = 1;
+              };
+              rumdl-check = {
+                options = markdownOptions;
+                priority = 2;
+              };
               typos = {
                 includes = [ "*.md" ];
                 priority = 3;
@@ -213,26 +168,23 @@
             ])
             ++ [
               treefmt.config.build.wrapper
-              dbServices
+              mysqlServices
               fmt
               chk
-            ]
-            ++ lib.attrValues dbCommands;
+            ];
 
           shellHook = ''
             ${preCommit.shellHook}
             ${runtimeEnv}
-            echo "ISYS2014 ready. Run 'db' to start MySQL and open dswork."
+            echo "ISYS2014 ready. Start MySQL with 'mysql-services up --detached'."
           '';
         };
 
         formatter = treefmt.config.build.wrapper;
-        packages = dbCommands // {
-          "db-services" = dbServices;
-        };
+        packages.mysql-services = mysqlServices;
         checks = {
           formatting = treefmt.config.build.check self;
-          services = dbServices;
+          services = mysqlServices;
         };
       }
     )
