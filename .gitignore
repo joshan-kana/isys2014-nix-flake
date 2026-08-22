@@ -1,11 +1,9 @@
-# Nix / direnv
+# Nix / direnv / devenv
 .direnv/
+.devenv/
 result
 result-*
 .pre-commit-config.yaml
-
-# MySQL runtime state
-.mysql/
 
 # Editor temporary files
 .DS_Store
