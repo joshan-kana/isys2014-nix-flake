@@ -35,12 +35,25 @@ jobs:
       - name: Check flake
         run: nix flake check --impure
 
+      - name: Evaluate all supported systems
+        run: nix flake check --all-systems --no-build --impure
+
       - name: Test MySQL workflow
         run: |
           nix develop --no-pure-eval --command bash -euc '
-            trap "devenv down >/dev/null 2>&1 || true" EXIT
+            trap db-stop EXIT
+
             db-start
+            db-status >/dev/null
             test "$(mysql -u root -Nse "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME=\"dswork\"")" = dswork
+
+            printf "%s\n" "CREATE TABLE smoke_test (id INT);" > /tmp/isys2014-smoke.sql
+            db-run /tmp/isys2014-smoke.sql
+            test "$(mysql -u root dswork -Nse "SHOW TABLES LIKE \"smoke_test\";")" = smoke_test
+
+            db-reset
+            test "$(mysql -u root -Nse "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME=\"dswork\"")" = dswork
+            test -z "$(mysql -u root dswork -Nse "SHOW TABLES LIKE \"smoke_test\";")"
           '
 
       - name: Check diff
