@@ -1,0 +1,31 @@
+name: Validate treefmt contract
+
+on:
+  push:
+    branches:
+      - refactor/devenv-mysql
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Verify treefmt write and lint pipeline
+        run: |
+          nix fmt
+          git diff --exit-code
+
+      - name: Verify read-only flake checks
+        run: nix flake check --impure
+
+      - name: Check diff
+        run: git diff --check
