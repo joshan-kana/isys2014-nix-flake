@@ -14,17 +14,17 @@
     "editor.formatOnSave": false
   },
   "files.exclude": {
-    "**/.devenv": true,
+    "**/.state": true,
     "**/.direnv": true,
     "**/result": true,
     "**/result-*": true
   },
   "files.watcherExclude": {
-    "**/.devenv/**": true,
+    "**/.state/**": true,
     "**/.direnv/**": true
   },
   "search.exclude": {
-    "**/.devenv": true,
+    "**/.state": true,
     "**/.direnv": true
   }
 }
