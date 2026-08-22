@@ -473,11 +473,9 @@
             cli = {
               preHook = ''
                 mkdir -p ${lib.escapeShellArg processComposeDir} ${lib.escapeShellArg mysqlSocketDir}
+                export PC_SOCKET_PATH="$PWD/${processComposeSocket}"
               '';
-              options = {
-                use-uds = true;
-                unix-socket = processComposeSocket;
-              };
+              options.use-uds = true;
             };
 
             services.mysql.mysql = {
