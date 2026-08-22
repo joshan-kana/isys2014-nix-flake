@@ -530,7 +530,7 @@
               sqllint
               db
               ;
-            "db-services" = dbServices;
+            "db-services" = lib.mkForce dbServices;
             "db-start" = dbStart;
             "db-stop" = dbStop;
             "db-status" = dbStatus;
