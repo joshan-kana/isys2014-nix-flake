@@ -127,7 +127,8 @@ nix flake check
 Convenience aliases are also available inside the development shell:
 
 ```bash
-fmt    # nix fmt\ nlt     # lint
+fmt    # nix fmt
+lt     # lint
 chk    # nix flake check
 ```
 
