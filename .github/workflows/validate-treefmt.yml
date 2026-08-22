@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - refactor/devenv-mysql
+  pull_request:
+    branches:
+      - main
 
 jobs:
   validate:
@@ -12,13 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: refactor/devenv-mysql
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             extra-substituters = https://devenv.cachix.org https://cachix.cachix.org
-            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= cachix.cachix.org-1:eWNHQldwUO7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM=
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= cachix.cachix.org-1:eWNHQldwU7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM=
 
       - name: Verify treefmt write and lint pipeline
         run: |
