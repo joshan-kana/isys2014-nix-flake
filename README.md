@@ -1,20 +1,22 @@
 # ISYS2014 practicals development environment
 
-Nix flake for ISYS2014 Database Systems practicals. The flake uses devenv's
-Nix modules to provide an isolated MySQL 8.4 service without maintaining a
-project-specific database supervisor.
+Pure Nix flake for ISYS2014 Database Systems practicals. It uses
+services-flake and process-compose-flake to provide an isolated MySQL 8.4
+service without requiring impure flake evaluation or a custom database
+supervisor.
 
 ## Included
 
 - MySQL 8.4, pinned by the flake lock
-- Per-practical persistent database state under `.devenv/`
+- Pure `nix develop` and `nix flake check`
+- Per-practical persistent database state under `.state/`
 - Unix-socket-only MySQL with TCP networking disabled
 - An automatically created `dswork` database
-- devenv-managed service configuration, readiness, and process supervision
-- MySQL-aware SQLFluff formatting and linting for assessment/practical `.sql`
-  files
+- services-flake MySQL configuration and initialization
+- process-compose-flake readiness and process supervision
+- MySQL-aware SQLFluff formatting and linting for practical `.sql` files
 - nixfmt, Statix, Deadnix, ShellCheck, rumdl, typos, treefmt, nixd, and direnv
-- SQLTools/MySQL and Draw.io VS Code recommendations for SQL and ER modelling
+- SQLTools/MySQL and Draw.io VS Code recommendations
 - A read-only `nix flake check` pre-commit hook
 
 ## Start a practical folder
@@ -27,11 +29,12 @@ direnv allow
 Without direnv, enter the environment with:
 
 ```bash
-nix develop --no-pure-eval
+nix develop
 ```
 
-The impure evaluation flag lets devenv discover the practical's project root;
-packages and inputs are still pinned by `flake.lock`.
+No `--impure` or `--no-pure-eval` flag is required. Package and service inputs
+are pinned by `flake.lock`, while project-local runtime paths are resolved only
+when the generated commands run.
 
 ## VS Code and Remote Development
 
@@ -65,11 +68,14 @@ Once MySQL is running, the normal client is available directly:
 mysql -u root dswork
 ```
 
-Each practical keeps its own persistent service state under `.devenv/`, which is
-ignored by Git. devenv's flake integration supervises the service with
-process-compose and keeps its runtime socket separate from the persistent state.
-SQL files, command files, and captured `.out` files remain trackable for
-practical work and submission evidence.
+Each practical keeps its own persistent state under `.state/`, which is ignored
+by Git. MySQL and process-compose use project-local Unix sockets under
+`.state/run/`, so separate practical folders remain isolated without fixed TCP
+ports or hard-coded absolute paths.
+
+services-flake owns MySQL initialization and creates `dswork` only after the
+server becomes healthy. This removes the first-start readiness workaround that
+was needed by the previous devenv flake integration.
 
 ## SQL support
 
@@ -87,23 +93,21 @@ nix run .#sqllint -- file.sql
 `nix fmt` also formats and lints tracked `.sql` files, while
 `nix run .#lint` provides the read-only SQL lint path. MySQL client-only
 `SOURCE file` and `\. file` directives are preserved unchanged while SQLFluff
-processes the surrounding SQL. This supports command files such as the
-practical-test submissions without weakening normal SQL parsing and linting.
+processes the surrounding SQL.
 
-Formatting/linting does not replace actually running the SQL. Use `db-run` or the
-interactive `db` client to verify schema, data, constraints, procedures, triggers,
-and other behaviour against MySQL itself.
+Formatting and linting do not replace actually running the SQL. Use `db-run` or
+the interactive `db` client to verify schema, data, constraints, procedures,
+triggers, and other behaviour against MySQL itself.
 
 ## Formatting and linting exclusions
 
 `flake.nix` contains one `globalExcludes` list used by both treefmt and the
-read-only lint runner. Environment state and lecturer material are excluded by
-default:
+read-only lint runner. Local state and lecturer material are excluded by default:
 
 ```nix
 globalExcludes = [
-  ".devenv/**"
   ".direnv/**"
+  ".state/**"
   "unit_materials/**"
 ];
 ```
@@ -117,27 +121,29 @@ same exclusion then applies to formatting and linting.
 ```bash
 nix fmt
 nix run .#lint
-nix flake check --impure
+nix flake check
 ```
 
 Convenience aliases are also available inside the development shell:
 
 ```bash
-fmt    # nix fmt
-lt     # lint
-chk    # nix flake check --impure
+fmt    # nix fmt\ nlt     # lint
+chk    # nix flake check
 ```
 
 `nix fmt` is the write/fix path and is deliberately treefmt-first. Treefmt
 coordinates Statix fixes, Deadnix, nixfmt, rumdl formatting and lint/fixes,
 Markdown typo fixes, ShellCheck, MySQL-aware SQL formatting, and SQLFluff
-linting. The SQL stages use a small compatibility wrapper only because
-assessment command files contain MySQL client `SOURCE`/`\.` directives that
-SQLFluff itself does not parse.
+linting. The SQL stages use a small compatibility wrapper because assessment
+command files contain MySQL client `SOURCE`/`\.` directives that SQLFluff itself
+does not parse.
 
 `nix run .#lint` is the read-only counterpart and runs Statix, Deadnix,
 ShellCheck, rumdl, Markdown typo checks, and SQLFluff linting without modifying
-tracked files. `nix flake check --impure` verifies both the treefmt formatting
-pipeline and this read-only lint pipeline, plus the MySQL client package and SQL
-tooling checks. The same full flake check runs as the pre-commit hook through
-devenv's first-class `git-hooks.nix` integration.
+tracked files. `nix flake check` verifies the treefmt formatting check, the
+read-only lint check, MySQL tooling, the generated service runner, and the SQL
+tooling checks.
+
+The pre-commit hook uses `pre-commit-hooks.nix` directly, like the COMP1002
+flake, and runs the full pure `nix flake check`. Commits therefore fail for
+formatting drift or lint errors without silently modifying files.
