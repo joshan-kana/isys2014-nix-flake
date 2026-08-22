@@ -13,7 +13,7 @@ service without impure flake evaluation or a custom database supervisor.
 - An automatically created `dswork` database
 - services-flake MySQL configuration and initialization
 - process-compose-flake readiness and process supervision
-- MySQL-aware SQLFluff formatting and linting for practical `.sql` files
+- Native treefmt-nix SQLFluff formatting and linting for `.sql` files
 - nixfmt, Statix, Deadnix, ShellCheck, rumdl, typos, treefmt, nixd, and direnv
 - SQLTools/MySQL and Draw.io VS Code recommendations
 - A read-only `nix flake check` pre-commit hook
@@ -50,8 +50,8 @@ and choose **Install**.
 ```bash
 db                          # Start MySQL if needed and open dswork
 db-start                    # Start MySQL without opening the client
-db-run create_tables.sql    # Run a SQL file against dswork
-db-run file.sql other_db    # Run a SQL file against another database
+db-run query.sql            # Run a SQL file against dswork
+db-run query.sql other_db   # Run a SQL file against another database
 db-status                   # Show service state
 db-log                      # Follow MySQL logs
 db-stop                     # Stop this practical's services
@@ -78,26 +78,20 @@ the project commands are only a thin convenience layer over those services.
 
 ## SQL support
 
-`.sql` files are first-class source files. SQLFluff runs in the MySQL dialect and
-raw templater mode so both formatting and linting understand the SQL used in the
-unit.
+`.sql` files are formatted and linted directly by SQLFluff through treefmt-nix,
+using the MySQL dialect and raw templater.
 
 ```bash
-sqlfmt assessment.sql       # Format one or more SQL files
-sqllint assessment.sql      # Read-only lint for one or more SQL files
-nix run .#sqlfmt -- file.sql
-nix run .#sqllint -- file.sql
+sqlfmt query.sql             # Format one or more SQL files
+sqllint query.sql            # Read-only lint one or more SQL files
+nix run .#sqlfmt -- query.sql
+nix run .#sqllint -- query.sql
 ```
 
-`nix fmt` also formats and lints tracked `.sql` files, while
-`nix run .#lint` provides the read-only SQL lint path. MySQL client-only
-`SOURCE file` and `\. file` directives are preserved unchanged by the small
-`scripts/sqlfluff-wrapper.py` compatibility adapter while SQLFluff processes the
-surrounding SQL.
-
-Formatting and linting do not replace actually running the SQL. Use `db-run` or
-the interactive `db` client to verify schema, data, constraints, procedures,
-triggers, and other behaviour against MySQL itself.
+SQLFluff is configured to ignore parser-family errors so MySQL client-only
+commands that are outside the SQL grammar do not make the whole project check
+fail. SQL formatting and linting remain advisory tooling; use `db-run` or the
+interactive `db` client to verify behaviour against MySQL itself.
 
 ## Formatting and linting exclusions
 
@@ -112,9 +106,8 @@ globalExcludes = [
 ];
 ```
 
-If supplied lecturer code does not pass the project checks, add its path or glob
-to this list once, for example `"provided_query.sql"` or `"provided/**"`. The
-same exclusion then applies to formatting and linting.
+If supplied lecturer code should not be formatted or linted, add its path or glob
+to this list once. The same exclusion then applies to both paths.
 
 ## Development commands
 
@@ -132,16 +125,15 @@ lt     # lint
 chk    # nix flake check
 ```
 
-`nix fmt` is the write/fix path and is deliberately treefmt-first. Treefmt
-coordinates Statix fixes, Deadnix, nixfmt, rumdl formatting and lint/fixes,
-Markdown typo fixes, ShellCheck, MySQL-aware SQL formatting, and SQLFluff
-linting.
+`nix fmt` is the write/fix path and is deliberately treefmt-first. Treefmt uses
+native modules for Statix, Deadnix, nixfmt, rumdl, typos, ShellCheck, SQLFluff
+formatting, and SQLFluff linting.
 
-`nix run .#lint` is the read-only counterpart and runs Statix, Deadnix,
-ShellCheck, rumdl, Markdown typo checks, SQLFluff linting, and a syntax check of
-the SQL compatibility adapter without modifying tracked files. `nix flake check`
-verifies the treefmt formatting check, the independent read-only lint check, the
-generated MySQL service runner, and the SQL compatibility fixture.
+`nix run .#lint` is the independent read-only counterpart and runs Statix,
+Deadnix, ShellCheck, rumdl, Markdown typo checks, and SQLFluff linting without
+modifying tracked files. `nix flake check` verifies both the treefmt formatting
+check and the independent lint check, and builds the generated MySQL service
+runner.
 
 The pre-commit hook uses `pre-commit-hooks.nix` directly, like the COMP1002
 flake, and runs the full pure `nix flake check`. Commits therefore fail for

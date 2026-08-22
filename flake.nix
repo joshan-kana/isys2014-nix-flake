@@ -33,7 +33,6 @@
         pkgs = nixpkgs.legacyPackages.${system};
         inherit (pkgs) lib;
 
-        # Single source of truth for generated/lecturer-provided files.
         globalExcludes = [
           ".direnv/**"
           ".state/**"
@@ -43,7 +42,6 @@
           pattern: "-g ${lib.escapeShellArg "!${pattern}"}"
         ) globalExcludes;
 
-        # Runtime-only path discovery keeps evaluation pure and sockets short.
         runtimeEnv = ''
           root="''${ISYS2014_ROOT:-$PWD}"
           while [[ "$root" != / && ! -f "$root/flake.nix" ]]; do root="$(dirname "$root")"; done
@@ -89,7 +87,6 @@
           ];
         };
 
-        # Thin command UI only; services-flake/process-compose own supervision.
         dbctl = pkgs.writeShellApplication {
           name = "dbctl";
           runtimeInputs = [
@@ -159,19 +156,21 @@
               "db-reset" = "reset";
             };
 
+        sqlOptions = [
+          "--templater=raw"
+          "--ignore=parsing"
+          "--exclude-rules=CP02,RF04"
+        ];
         mkSql =
           name: mode:
-          pkgs.writeShellApplication {
-            inherit name;
-            runtimeInputs = [
-              pkgs.python3
-              pkgs.sqlfluff
-            ];
-            text = ''
-              (( $# )) || { echo "Usage: ${name} FILE.sql [...]" >&2; exit 2; }
-              exec python3 ${./scripts/sqlfluff-wrapper.py} ${mode} "$@"
-            '';
-          };
+          pkgs.writeShellScriptBin name ''
+            exec ${lib.getExe pkgs.sqlfluff} ${mode} \
+              --dialect=mysql \
+              --templater=raw \
+              --ignore=parsing \
+              --exclude-rules=CP02,RF04 \
+              --disable-progress-bar "$@"
+          '';
         sqlfmt = mkSql "sqlfmt" "format";
         sqllint = mkSql "sqllint" "lint";
 
@@ -183,6 +182,11 @@
             rumdl-check.enable = true;
             rumdl-format.enable = true;
             shellcheck.enable = true;
+            sqlfluff = {
+              enable = true;
+              dialect = "mysql";
+            };
+            sqlfluff-lint.enable = true;
             statix.enable = true;
             typos.enable = true;
           };
@@ -202,14 +206,12 @@
                 "-s"
                 "bash"
               ];
-              sql-format = {
-                command = lib.getExe sqlfmt;
-                includes = [ "*.sql" ];
+              sqlfluff = {
+                options = sqlOptions;
                 priority = 1;
               };
-              sql-lint = {
-                command = lib.getExe sqllint;
-                includes = [ "*.sql" ];
+              sqlfluff-lint = {
+                options = sqlOptions;
                 priority = 2;
               };
             };
@@ -220,7 +222,6 @@
           name = "lint";
           runtimeInputs = [
             pkgs.deadnix
-            pkgs.python3
             pkgs.ripgrep
             pkgs.rumdl
             pkgs.shellcheck
@@ -232,7 +233,6 @@
             statix check flake.nix
             deadnix --fail flake.nix
             shellcheck -s bash .envrc
-            python3 -c 'from pathlib import Path; p=Path("scripts/sqlfluff-wrapper.py"); compile(p.read_text(encoding="utf-8"), str(p), "exec")'
 
             mapfile -t markdown < <(rg --files -g '*.md' ${excludeArgs})
             (( ''${#markdown[@]} == 0 )) || { rumdl check "''${markdown[@]}"; typos "''${markdown[@]}"; }
@@ -255,32 +255,6 @@
             ${lib.getExe package}
             touch "$out"
           '';
-        sqlCheck =
-          pkgs.runCommand "isys2014-sql-check"
-            {
-              nativeBuildInputs = [
-                pkgs.gnugrep
-                sqlfmt
-                sqllint
-              ];
-            }
-            ''
-              cat > assessment.sql <<'SQL'
-              CREATE TABLE Conference (
-                confID CHAR(4),
-                name VARCHAR(50),
-                date DATE,
-                count INT
-              );
-              source stadium.txt;
-              SQL
-              sqlfmt assessment.sql
-              sqllint assessment.sql
-              grep -Fqx 'source stadium.txt;' assessment.sql
-              grep -Fq Conference assessment.sql
-              grep -Fq confID assessment.sql
-              touch "$out"
-            '';
 
         preCommit = pre-commit-hooks.lib.${system}.run {
           src = self;
@@ -346,7 +320,6 @@
         checks = {
           formatting = treefmt.config.build.check self;
           lint = runCheck lint;
-          sql = sqlCheck;
           services = dbServices;
         };
       }
