@@ -30,6 +30,15 @@ nix develop --no-pure-eval
 The impure evaluation flag lets devenv discover the practical's project root;
 packages and inputs are still pinned by `flake.lock`.
 
+## VS Code and Remote Development
+
+Install the recommended VS Code extensions for this repository, including
+Remote-SSH when opening the practical through an SSH remote host.
+
+If you also want your normal local extensions available in the remote window,
+run `Remote: Install Local Extensions in 'SSH: <host>'`, choose **Select All**,
+and choose **Install**.
+
 ## Database commands
 
 ```bash
