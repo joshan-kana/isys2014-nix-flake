@@ -40,7 +40,7 @@
     {
       "label": "Check: everything",
       "type": "shell",
-      "command": "nix flake check --impure",
+      "command": "nix flake check",
       "problemMatcher": [],
       "group": {
         "kind": "build",
