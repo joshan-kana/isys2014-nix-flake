@@ -1,0 +1,32 @@
+name: Validate treefmt contract
+
+on:
+  push:
+    branches:
+      - refactor/devenv-mysql
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/devenv-mysql
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://devenv.cachix.org https://cachix.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= cachix.cachix.org-1:eWNHQldwUO7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM=
+
+      - name: Verify treefmt write and lint pipeline
+        run: |
+          nix fmt
+          git diff --exit-code
+
+      - name: Verify read-only flake checks
+        run: nix flake check --impure
+
+      - name: Check diff
+        run: git diff --check
