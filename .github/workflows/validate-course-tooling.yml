@@ -1,0 +1,77 @@
+name: Validate course tooling
+
+on:
+  push:
+    branches:
+      - refactor/devenv-mysql
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://devenv.cachix.org https://cachix.cachix.org
+            extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= cachix.cachix.org-1:eWNHQldwUO7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM=
+
+      - name: Format
+        run: nix fmt
+
+      - name: Check flake
+        run: nix flake check --impure
+
+      - name: Test SQL and MySQL workflow
+        run: |
+          nix develop --no-pure-eval --command bash -euc '
+            trap db-stop EXIT
+            command -v sqlfluff
+            command -v sqlfmt
+            command -v sqllint
+            command -v deadnix
+            command -v rumdl
+            command -v typos
+
+            cat > /tmp/assessment.sql <<"SQL"
+            -- use the dswork database
+            USE dswork;
+
+            CREATE TABLE Conference (
+              confID CHAR(4),
+              name VARCHAR(50)
+            );
+
+            source stadium.txt;
+            SQL
+
+            sqlfmt /tmp/assessment.sql
+            sqllint /tmp/assessment.sql
+            grep -Fq "source stadium.txt;" /tmp/assessment.sql
+
+            db-start
+            test "$(mysql -u root -Nse "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME=\"dswork\"")" = dswork
+          '
+
+      - name: Check diff
+        run: git diff --check
+
+      - name: Commit formatter output
+        run: |
+          if ! git diff --quiet; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add -A
+            git commit -m "chore: format course tooling"
+            git push
+          fi
