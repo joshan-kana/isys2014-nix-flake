@@ -2,11 +2,15 @@
 
 {
   packages = with pkgs; [
+    deadnix
     less
     nixd
     nixfmt
+    rumdl
     shellcheck
+    sqlfluff
     statix
+    typos
     zip
   ];
 
