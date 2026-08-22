@@ -44,8 +44,7 @@
         ];
       };
 
-      treefmtFor = system:
-        treefmt-nix.lib.evalModule nixpkgs.legacyPackages.${system} treefmtConfig;
+      treefmtFor = system: treefmt-nix.lib.evalModule nixpkgs.legacyPackages.${system} treefmtConfig;
     in
     {
       devShells = forAllSystems (
@@ -87,9 +86,11 @@
         in
         {
           formatting = treefmt.config.build.check self;
-          mysql-client = pkgs.runCommand "isys2014-mysql-client-check" { nativeBuildInputs = [ pkgs.mysql84 ]; } ''
-            mysql --version > "$out"
-          '';
+          mysql-client =
+            pkgs.runCommand "isys2014-mysql-client-check" { nativeBuildInputs = [ pkgs.mysql84 ]; }
+              ''
+                mysql --version > "$out"
+              '';
         }
       );
 
