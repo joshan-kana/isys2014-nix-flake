@@ -84,10 +84,11 @@ nix run .#sqlfmt -- file.sql
 nix run .#sqllint -- file.sql
 ```
 
-`nix fmt` also formats tracked `.sql` files and `nix run .#lint` lints them.
-MySQL client-only `SOURCE file` and `\. file` directives are preserved unchanged
-while SQLFluff processes the surrounding SQL. This supports command files such as
-the practical-test submissions without weakening normal SQL parsing and linting.
+`nix fmt` also formats and lints tracked `.sql` files, while
+`nix run .#lint` provides the read-only SQL lint path. MySQL client-only
+`SOURCE file` and `\. file` directives are preserved unchanged while SQLFluff
+processes the surrounding SQL. This supports command files such as the
+practical-test submissions without weakening normal SQL parsing and linting.
 
 Formatting/linting does not replace actually running the SQL. Use `db-run` or the
 interactive `db` client to verify schema, data, constraints, procedures, triggers,
@@ -127,9 +128,14 @@ lt     # lint
 chk    # nix flake check --impure
 ```
 
-`nix fmt` is the write/fix path: treefmt coordinates Statix, Deadnix, nixfmt,
-rumdl, and MySQL-aware SQL formatting. `nix run .#lint` is read-only and runs
-Statix, Deadnix, ShellCheck, rumdl, typo checks for Markdown, and SQLFluff linting.
-`nix flake check --impure` verifies formatting, linting, the MySQL client package,
-and SQL tooling including preservation of MySQL `SOURCE` directives. The same
-full check runs as the pre-commit hook.
+`nix fmt` is the write/fix path and is deliberately treefmt-first: treefmt
+coordinates Statix fixes, Deadnix, nixfmt, rumdl formatting, Markdown typo fixes,
+ShellCheck, MySQL-aware SQL formatting, and SQLFluff linting. The SQL stages use a
+small compatibility wrapper only because assessment command files contain MySQL
+client `SOURCE`/`\.` directives that SQLFluff itself does not parse.
+
+`nix run .#lint` is the read-only counterpart and runs Statix, Deadnix,
+ShellCheck, rumdl, Markdown typo checks, and SQLFluff linting without modifying
+tracked files. `nix flake check --impure` verifies both the treefmt formatting
+pipeline and this read-only lint pipeline, plus the MySQL client package and SQL
+tooling checks. The same full flake check runs as the pre-commit hook.
