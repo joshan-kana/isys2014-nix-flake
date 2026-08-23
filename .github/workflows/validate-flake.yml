@@ -43,3 +43,7 @@ jobs:
             cp /tmp/flake.nix.clean flake.nix
             git diff --exit-code
           '
+
+          services="$(nix build .#checks.x86_64-linux.services --no-link --print-out-paths)"
+          "$services/bin/mysql-services" process stop mysql
+          nix develop -c mysql -u root -Nse "USE dswork"
