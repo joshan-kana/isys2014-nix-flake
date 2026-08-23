@@ -2,27 +2,15 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Database: Open MySQL shell",
+      "label": "Format: current file",
       "type": "shell",
-      "command": "db-shell",
-      "problemMatcher": []
-    },
-    {
-      "label": "Database: Run current SQL file",
-      "type": "shell",
-      "command": "db-run ${file}",
+      "command": "nix fmt -- \"${file}\"",
       "problemMatcher": []
     },
     {
       "label": "Format: all",
       "type": "shell",
       "command": "nix fmt",
-      "problemMatcher": []
-    },
-    {
-      "label": "Lint: Statix and ShellCheck",
-      "type": "shell",
-      "command": "nix run .#lint",
       "problemMatcher": []
     },
     {

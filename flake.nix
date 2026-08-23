@@ -1,9 +1,11 @@
 {
-  description = "ISYS2014 practicals: isolated MySQL 8.4 and database tools";
+  description = "ISYS2014 practicals: pure MySQL 8.4 development environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
+    services-flake.url = "github:juspay/services-flake";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -19,6 +21,8 @@
       self,
       nixpkgs,
       flake-utils,
+      process-compose-flake,
+      services-flake,
       treefmt-nix,
       pre-commit-hooks,
       ...
@@ -27,103 +31,136 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        mysql = pkgs.mysql84;
 
-        dbctl = pkgs.writeShellApplication {
-          name = "dbctl";
-          runtimeInputs = [
-            mysql
-            pkgs.coreutils
+        globalExcludes = [
+          ".direnv"
+          ".state"
+          "unit_materials"
+        ];
+
+        runtimeEnv = ''
+          root="''${ISYS2014_ROOT:-$PWD}"
+          while [[ "$root" != / && ! -f "$root/flake.nix" ]]; do root="$(dirname "$root")"; done
+          [[ -f "$root/flake.nix" ]] || { echo "ERROR: could not find flake.nix" >&2; exit 1; }
+          id="$(printf '%s' "$root" | cksum)"
+          export ISYS2014_ROOT="$root"
+          export ISYS2014_RUN_DIR="/tmp/isys2014-''${id%% *}"
+          export MYSQL_UNIX_PORT="$ISYS2014_RUN_DIR/mysql.sock"
+        '';
+
+        mysqlServices = (import process-compose-flake.lib { inherit pkgs; }).makeProcessCompose {
+          name = "mysql-services";
+          modules = [
+            services-flake.processComposeModules.default
+            {
+              cli = {
+                environment.PC_SOCKET_PATH = "$ISYS2014_RUN_DIR/process-compose.sock";
+                options = {
+                  no-server = false;
+                  use-uds = true;
+                };
+                preHook = ''
+                  ${runtimeEnv}
+                  mkdir -p "$ISYS2014_RUN_DIR"
+                  cd "$ISYS2014_ROOT"
+                '';
+              };
+              services.mysql.mysql = {
+                enable = true;
+                package = pkgs.mysql84;
+                dataDir = ''"$ISYS2014_ROOT"/.state/mysql'';
+                socketDir = ''"$ISYS2014_RUN_DIR"'';
+                initialDatabases = [ { name = "dswork"; } ];
+                settings.mysqld = {
+                  "skip-networking" = true;
+                  "skip-log-bin" = true;
+                  mysqlx = "OFF";
+                };
+              };
+            }
           ];
-          text = builtins.readFile ./scripts/dbctl.sh;
         };
+        mysqlServicesExe = "${mysqlServices}/bin/mysql-services";
 
-        mkDbCommand =
-          name: command:
-          pkgs.writeShellApplication {
-            inherit name;
-            runtimeInputs = [ dbctl ];
-            text = ''exec dbctl ${command} "$@"'';
-          };
-
-        dbStart = mkDbCommand "db-start" "start";
-        dbStop = mkDbCommand "db-stop" "stop";
-        dbStatus = mkDbCommand "db-status" "status";
-        dbReset = mkDbCommand "db-reset" "reset";
-        dbShell = mkDbCommand "db-shell" "shell";
-        dbRun = mkDbCommand "db-run" "run";
-        dbLog = mkDbCommand "db-log" "log";
-
-        mkAlias =
-          alias: package:
-          pkgs.writeShellScriptBin alias ''
-            exec ${pkgs.lib.getExe package} "$@"
-          '';
-
+        sqlOptions = [
+          "--templater=raw"
+          "--ignore=parsing"
+          "--exclude-rules=CP02,RF04"
+        ];
+        markdownOptions = [
+          "--disable"
+          "MD013"
+        ];
         treefmt = treefmt-nix.lib.evalModule pkgs {
           projectRootFile = "flake.nix";
           programs = {
+            deadnix.enable = true;
             nixfmt.enable = true;
+            rumdl-check.enable = true;
+            rumdl-format.enable = true;
+            shellcheck.enable = true;
+            sqlfluff = {
+              enable = true;
+              dialect = "mysql";
+            };
+            sqlfluff-lint.enable = true;
             statix.enable = true;
+            typos.enable = true;
           };
-          settings.global.excludes = [
-            ".direnv/**"
-            ".mysql/**"
-          ];
-        };
-
-        lint = pkgs.writeShellApplication {
-          name = "lint";
-          runtimeInputs = [
-            pkgs.shellcheck
-            pkgs.statix
-          ];
-          text = ''
-            statix check flake.nix
-            shellcheck scripts/*.sh
-          '';
+          settings = {
+            global.excludes = map (dir: "${dir}/**") globalExcludes;
+            formatter = {
+              statix.priority = 1;
+              deadnix.priority = 2;
+              nixfmt.priority = 3;
+              rumdl-format = {
+                options = markdownOptions;
+                priority = 1;
+              };
+              rumdl-check = {
+                options = markdownOptions;
+                priority = 2;
+              };
+              typos = {
+                includes = [ "*.md" ];
+                priority = 3;
+              };
+              shellcheck.options = [
+                "-s"
+                "bash"
+              ];
+              sqlfluff = {
+                options = sqlOptions;
+                priority = 1;
+              };
+              sqlfluff-lint = {
+                options = sqlOptions;
+                priority = 2;
+              };
+            };
+          };
         };
 
         check = pkgs.writeShellApplication {
           name = "check";
-          runtimeInputs = [ pkgs.nix ];
-          text = ''exec nix flake check "''${1:-${self}}" "$@"'';
+          runtimeInputs = [ pkgs.pre-commit ];
+          text = ''exec pre-commit run nix-flake-check "$@"'';
         };
-
-        runCheck =
-          pkg:
-          pkgs.runCommand "isys2014-${pkg.name}-check" { nativeBuildInputs = [ pkg ]; } ''
-            cp -R ${self} source
-            chmod -R u+w source
-            cd source
-            ${pkg}/bin/${pkg.name}
-            touch "$out"
-          '';
       in
       {
         devShells.default = pkgs.mkShell {
-          packages = [
-            mysql
-            pkgs.less
-            pkgs.nixd
-            pkgs.nixfmt
-            pkgs.shellcheck
-            pkgs.statix
-            pkgs.zip
-            dbctl
-            dbStart
-            dbStop
-            dbStatus
-            dbReset
-            dbShell
-            dbRun
-            dbLog
-            (mkAlias "db" dbShell)
-            (mkAlias "lt" lint)
-            (mkAlias "fmt" treefmt.config.build.wrapper)
-            (mkAlias "chk" check)
-            treefmt.config.build.wrapper
-          ];
+          packages =
+            (with pkgs; [
+              mysql84
+              nixd
+              nixfmt
+              zip
+            ])
+            ++ [
+              treefmt.config.build.wrapper
+              (pkgs.writeShellScriptBin "fmt" ''exec ${pkgs.lib.getExe treefmt.config.build.wrapper} "$@"'')
+              (pkgs.writeShellScriptBin "chk" ''exec ${pkgs.lib.getExe check} "$@"'')
+            ];
 
           shellHook = ''
             ${(pre-commit-hooks.lib.${system}.run {
@@ -137,32 +174,33 @@
               };
             }).shellHook
             }
-            eval "$(dbctl env)"
-            dbctl start --quiet
-            echo "MySQL ready: mysql -u root    database: dswork"
+            ${runtimeEnv}
+
+            if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+              mkdir -p "$ISYS2014_RUN_DIR"
+              if ${mysqlServicesExe} project state >/dev/null 2>&1; then
+                ${mysqlServicesExe} process start mysql >/dev/null
+              else
+                rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
+                ${mysqlServicesExe} up --detached >/dev/null
+              fi
+              for _ in {1..60}; do
+                mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && break
+                sleep 0.5
+              done
+              mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 || {
+                echo "ERROR: MySQL did not become ready" >&2
+                return 1
+              }
+            fi
           '';
         };
 
         formatter = treefmt.config.build.wrapper;
-
-        packages = {
-          inherit dbctl lint;
-          "db-start" = dbStart;
-          "db-stop" = dbStop;
-          "db-status" = dbStatus;
-          "db-reset" = dbReset;
-          "db-shell" = dbShell;
-          "db-run" = dbRun;
-          "db-log" = dbLog;
-          default = dbShell;
-        };
-
+        packages.check = check;
         checks = {
           formatting = treefmt.config.build.check self;
-          lint = runCheck lint;
-          mysql-client = pkgs.runCommand "isys2014-mysql-client-check" { nativeBuildInputs = [ mysql ]; } ''
-            mysql --version > "$out"
-          '';
+          services = mysqlServices;
         };
       }
     )

@@ -14,17 +14,17 @@
     "editor.formatOnSave": false
   },
   "files.exclude": {
+    "**/.state": true,
     "**/.direnv": true,
-    "**/.mysql": true,
     "**/result": true,
     "**/result-*": true
   },
   "files.watcherExclude": {
-    "**/.direnv/**": true,
-    "**/.mysql/**": true
+    "**/.state/**": true,
+    "**/.direnv/**": true
   },
   "search.exclude": {
-    "**/.direnv": true,
-    "**/.mysql": true
+    "**/.state": true,
+    "**/.direnv": true
   }
 }
