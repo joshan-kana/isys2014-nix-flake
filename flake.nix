@@ -153,7 +153,12 @@
           };
         };
         fmt = pkgs.writeShellScriptBin "fmt" ''exec ${lib.getExe treefmt.config.build.wrapper} "$@"'';
-        chk = pkgs.writeShellScriptBin "chk" ''exec ${pkgs.nix}/bin/nix flake check "$@"'';
+        check = pkgs.writeShellApplication {
+          name = "check";
+          runtimeInputs = [ pkgs.pre-commit ];
+          text = ''exec pre-commit run nix-flake-check "$@"'';
+        };
+        chk = pkgs.writeShellScriptBin "chk" ''exec ${lib.getExe check} "$@"'';
       in
       {
         devShells.default = pkgs.mkShell {
@@ -193,6 +198,7 @@
         };
 
         formatter = treefmt.config.build.wrapper;
+        packages.check = check;
         checks = {
           formatting = treefmt.config.build.check self;
           services = mysqlServices;
