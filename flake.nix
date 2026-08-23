@@ -31,6 +31,8 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        inherit (pkgs) lib;
+        overrides = import ./overrides.nix { inherit lib pkgs; };
 
         rootMarkerFile = ".isys2014-practical";
 
@@ -108,55 +110,111 @@
           "--disable"
           "MD013"
         ];
-        treefmt = treefmt-nix.lib.evalModule pkgs {
-          projectRootFile = "flake.nix";
-          programs = {
-            deadnix.enable = true;
-            nixfmt.enable = true;
-            rumdl-check.enable = true;
-            rumdl-format.enable = true;
-            shellcheck.enable = true;
-            sqlfluff = {
-              enable = true;
-              dialect = "mysql";
-            };
-            sqlfluff-lint.enable = true;
-            statix.enable = true;
-            typos.enable = true;
-          };
-          settings = {
-            global.excludes = map (dir: "${dir}/**") globalExcludes;
-            formatter = {
-              statix.priority = 1;
-              deadnix.priority = 2;
-              nixfmt.priority = 3;
-              rumdl-format = {
-                options = markdownOptions;
-                priority = 1;
-              };
-              rumdl-check = {
-                options = markdownOptions;
-                priority = 2;
-              };
-              typos = {
-                includes = [ "*.md" ];
-                priority = 3;
-              };
-              shellcheck.options = [
-                "-s"
-                "bash"
-              ];
+        baseConfig = final: {
+          treefmtConfig = {
+            projectRootFile = "flake.nix";
+            programs = {
+              deadnix.enable = true;
+              nixfmt.enable = true;
+              rumdl-check.enable = true;
+              rumdl-format.enable = true;
+              shellcheck.enable = true;
               sqlfluff = {
-                options = sqlOptions;
-                priority = 1;
+                enable = true;
+                dialect = "mysql";
               };
-              sqlfluff-lint = {
-                options = sqlOptions;
-                priority = 2;
+              sqlfluff-lint.enable = true;
+              statix.enable = true;
+              typos.enable = true;
+            };
+            settings = {
+              global.excludes = map (dir: "${dir}/**") globalExcludes;
+              formatter = {
+                statix.priority = 1;
+                deadnix.priority = 2;
+                nixfmt.priority = 3;
+                rumdl-format = {
+                  options = markdownOptions;
+                  priority = 1;
+                };
+                rumdl-check = {
+                  options = markdownOptions;
+                  priority = 2;
+                };
+                typos = {
+                  includes = [ "*.md" ];
+                  priority = 3;
+                };
+                shellcheck.options = [
+                  "-s"
+                  "bash"
+                ];
+                sqlfluff = {
+                  options = sqlOptions;
+                  priority = 1;
+                };
+                sqlfluff-lint = {
+                  options = sqlOptions;
+                  priority = 2;
+                };
               };
             };
           };
+
+          devShellConfig = {
+            packages =
+              (with pkgs; [
+                mysql84
+                nixd
+                nixfmt
+                zip
+              ])
+              ++ [
+                final.treefmt.config.build.wrapper
+                (pkgs.writeShellScriptBin "fmt" ''exec ${pkgs.lib.getExe final.treefmt.config.build.wrapper} "$@"'')
+                (pkgs.writeShellScriptBin "chk" ''exec ${pkgs.lib.getExe check} "$@"'')
+                db
+              ];
+
+            shellHook = ''
+              ${(pre-commit-hooks.lib.${system}.run {
+                src = self;
+                hooks.nix-flake-check = {
+                  enable = true;
+                  name = "nix flake check";
+                  entry = "nix flake check";
+                  language = "system";
+                  pass_filenames = false;
+                };
+              }).shellHook
+              }
+              ${runtimeEnv}
+
+              if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+                mkdir -p "$ISYS2014_RUN_DIR"
+                if ${mysqlServicesExe} project state >/dev/null 2>&1; then
+                  ${mysqlServicesExe} process start mysql >/dev/null
+                else
+                  rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
+                  ${mysqlServicesExe} up --detached >/dev/null
+                fi
+                for _ in {1..60}; do
+                  mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && break
+                  sleep 0.5
+                done
+                mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 || {
+                  echo "ERROR: MySQL did not become ready" >&2
+                  return 1
+                }
+              fi
+            '';
+          };
+
+          treefmt = treefmt-nix.lib.evalModule pkgs final.treefmtConfig;
         };
+
+        config = (lib.makeExtensible baseConfig).extend overrides;
+        inherit (config) treefmt;
 
         check = pkgs.writeShellApplication {
           name = "check";
@@ -195,54 +253,7 @@
         };
       in
       {
-        devShells.default = pkgs.mkShell {
-          packages =
-            (with pkgs; [
-              mysql84
-              nixd
-              nixfmt
-              zip
-            ])
-            ++ [
-              treefmt.config.build.wrapper
-              (pkgs.writeShellScriptBin "fmt" ''exec ${pkgs.lib.getExe treefmt.config.build.wrapper} "$@"'')
-              (pkgs.writeShellScriptBin "chk" ''exec ${pkgs.lib.getExe check} "$@"'')
-              db
-            ];
-
-          shellHook = ''
-            ${(pre-commit-hooks.lib.${system}.run {
-              src = self;
-              hooks.nix-flake-check = {
-                enable = true;
-                name = "nix flake check";
-                entry = "nix flake check";
-                language = "system";
-                pass_filenames = false;
-              };
-            }).shellHook
-            }
-            ${runtimeEnv}
-
-            if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
-              mkdir -p "$ISYS2014_RUN_DIR"
-              if ${mysqlServicesExe} project state >/dev/null 2>&1; then
-                ${mysqlServicesExe} process start mysql >/dev/null
-              else
-                rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
-                ${mysqlServicesExe} up --detached >/dev/null
-              fi
-              for _ in {1..60}; do
-                mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && break
-                sleep 0.5
-              done
-              mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 || {
-                echo "ERROR: MySQL did not become ready" >&2
-                return 1
-              }
-            fi
-          '';
-        };
+        devShells.default = pkgs.mkShell config.devShellConfig;
 
         formatter = treefmt.config.build.wrapper;
         packages.check = check;
