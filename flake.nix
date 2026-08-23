@@ -32,8 +32,10 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        rootMarkerFile = ".isys2014-practical";
+
         templateFiles = [
-          ".isys2014-practical"
+          rootMarkerFile
           ".envrc"
           ".gitignore"
           ".vscode/extensions.json"
@@ -175,16 +177,16 @@
           text = ''
             root="$(pwd -P)"
 
-            while [[ "$root" != "/" && ! -f "$root/.isys2014-practical" ]]; do
+            while [[ "$root" != "/" && ! -f "$root/${rootMarkerFile}" ]]; do
               root="$(dirname "$root")"
             done
 
-            if [[ ! -f "$root/.isys2014-practical" ]]; then
-              echo "error: could not find ISYS2014 practical root" >&2
+            if [[ ! -f "$root/${rootMarkerFile}" ]]; then
+              echo "error: could not find template root (${rootMarkerFile})" >&2
               exit 1
             fi
 
-            rsync -rltp --chmod=u+w \
+            rsync -rlpc --chmod=u+w \
               --files-from=${pkgs.writeText "template-files" (pkgs.lib.concatStringsSep "\n" templateFiles)} \
               ${self.outPath}/ "$root/"
 
