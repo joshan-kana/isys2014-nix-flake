@@ -31,7 +31,6 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        inherit (pkgs) lib;
 
         globalExcludes = [
           ".direnv/**"
@@ -142,23 +141,11 @@
           };
         };
 
-        preCommit = pre-commit-hooks.lib.${system}.run {
-          src = self;
-          hooks.nix-flake-check = {
-            enable = true;
-            name = "nix flake check";
-            entry = "nix flake check";
-            language = "system";
-            pass_filenames = false;
-          };
-        };
-        fmt = pkgs.writeShellScriptBin "fmt" ''exec ${lib.getExe treefmt.config.build.wrapper} "$@"'';
         check = pkgs.writeShellApplication {
           name = "check";
           runtimeInputs = [ pkgs.pre-commit ];
           text = ''exec pre-commit run nix-flake-check "$@"'';
         };
-        chk = pkgs.writeShellScriptBin "chk" ''exec ${lib.getExe check} "$@"'';
       in
       {
         devShells.default = pkgs.mkShell {
@@ -171,12 +158,21 @@
             ])
             ++ [
               treefmt.config.build.wrapper
-              fmt
-              chk
+              (pkgs.writeShellScriptBin "fmt" ''exec ${pkgs.lib.getExe treefmt.config.build.wrapper} "$@"'')
+              (pkgs.writeShellScriptBin "chk" ''exec ${pkgs.lib.getExe check} "$@"'')
             ];
 
           shellHook = ''
-            ${preCommit.shellHook}
+            ${(pre-commit-hooks.lib.${system}.run {
+              src = self;
+              hooks.nix-flake-check = {
+                enable = true;
+                name = "nix flake check";
+                entry = "nix flake check";
+                language = "system";
+                pass_filenames = false;
+              };
+            }).shellHook}
             ${runtimeEnv}
 
             if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
