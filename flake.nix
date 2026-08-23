@@ -178,7 +178,9 @@
 
             if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
               mkdir -p "$ISYS2014_RUN_DIR"
-              if ! ${mysqlServicesExe} project state >/dev/null 2>&1; then
+              if ${mysqlServicesExe} project state >/dev/null 2>&1; then
+                ${mysqlServicesExe} process start mysql >/dev/null
+              else
                 rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
                 ${mysqlServicesExe} up --detached >/dev/null
               fi
