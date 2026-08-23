@@ -146,6 +146,11 @@
           runtimeInputs = [ pkgs.pre-commit ];
           text = ''exec pre-commit run nix-flake-check "$@"'';
         };
+        db = pkgs.writeShellApplication {
+          name = "db";
+          runtimeInputs = [ pkgs.mysql84 ];
+          text = ''exec mysql -u root dswork "$@"'';
+        };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -160,6 +165,7 @@
               treefmt.config.build.wrapper
               (pkgs.writeShellScriptBin "fmt" ''exec ${pkgs.lib.getExe treefmt.config.build.wrapper} "$@"'')
               (pkgs.writeShellScriptBin "chk" ''exec ${pkgs.lib.getExe check} "$@"'')
+              db
             ];
 
           shellHook = ''

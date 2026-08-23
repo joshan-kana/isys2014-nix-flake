@@ -34,6 +34,13 @@ Connect with:
 mysql -u root dswork
 ```
 
+Once the development environment is active, the shorter `db` command opens the
+same MySQL shell:
+
+```bash
+db
+```
+
 MySQL client commands used in the practicals work normally, including:
 
 ```text
