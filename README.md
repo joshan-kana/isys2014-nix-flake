@@ -1,6 +1,6 @@
-# ISYS2014 practicals
+# ISYS2014 practicals development environment
 
-Nix development environment for ISYS2014 Database Systems practical work.
+Nix flake for ISYS2014 Database Systems practicals.
 
 ## Setup
 
