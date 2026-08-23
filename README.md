@@ -23,7 +23,16 @@ After that, entering the directory activates the development environment automat
 
 ## Update
 
-Update an existing practical from the latest template:
+Update an existing practical from the latest template.
+
+Practicals without the `.isys2014-practical` marker will need it added once
+from the practical root:
+
+```bash
+touch .isys2014-practical
+```
+
+Then update with:
 
 ```bash
 nix run 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git#sync' --refresh
