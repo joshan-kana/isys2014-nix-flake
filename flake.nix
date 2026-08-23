@@ -33,6 +33,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
 
         templateFiles = [
+          ".isys2014-practical"
           ".envrc"
           ".gitignore"
           ".vscode/extensions.json"
@@ -40,8 +41,9 @@
           ".vscode/tasks.json"
           "flake.lock"
           "flake.nix"
+        ];
 
-          # Deleted template files
+        deletedTemplateFiles = [
           "scripts/dbctl.sh"
         ];
 
@@ -167,14 +169,28 @@
         sync = pkgs.writeShellApplication {
           name = "sync";
           runtimeInputs = [
-            pkgs.git
+            pkgs.coreutils
             pkgs.rsync
           ];
           text = ''
-            root="$(git rev-parse --show-toplevel)"
-            rsync -rltp --chmod=u+w --delete-missing-args \
+            root="$(pwd -P)"
+
+            while [[ "$root" != "/" && ! -f "$root/.isys2014-practical" ]]; do
+              root="$(dirname "$root")"
+            done
+
+            if [[ ! -f "$root/.isys2014-practical" ]]; then
+              echo "error: could not find ISYS2014 practical root" >&2
+              exit 1
+            fi
+
+            rsync -rltp --chmod=u+w \
               --files-from=${pkgs.writeText "template-files" (pkgs.lib.concatStringsSep "\n" templateFiles)} \
               ${self.outPath}/ "$root/"
+
+            for path in ${pkgs.lib.escapeShellArgs deletedTemplateFiles}; do
+              rm -f -- "$root/$path"
+            done
           '';
         };
       in
