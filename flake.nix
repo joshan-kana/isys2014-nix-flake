@@ -54,11 +54,18 @@
           modules = [
             services-flake.processComposeModules.default
             {
-              cli.preHook = ''
-                ${runtimeEnv}
-                mkdir -p "$ISYS2014_RUN_DIR"
-                cd "$ISYS2014_ROOT"
-              '';
+              cli = {
+                environment.PC_SOCKET_PATH = "$ISYS2014_RUN_DIR/process-compose.sock";
+                options = {
+                  no-server = false;
+                  use-uds = true;
+                };
+                preHook = ''
+                  ${runtimeEnv}
+                  mkdir -p "$ISYS2014_RUN_DIR"
+                  cd "$ISYS2014_ROOT"
+                '';
+              };
               services.mysql.mysql = {
                 enable = true;
                 package = pkgs.mysql84;
@@ -166,7 +173,22 @@
           shellHook = ''
             ${preCommit.shellHook}
             ${runtimeEnv}
-            echo "ISYS2014 ready. Run 'mysql-services' to start MySQL."
+
+            if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
+              mkdir -p "$ISYS2014_RUN_DIR"
+              if ! mysql-services project state >/dev/null 2>&1; then
+                rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
+                mysql-services up --detached >/dev/null
+              fi
+              for _ in {1..60}; do
+                mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && break
+                sleep 0.5
+              done
+              mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 || {
+                echo "ERROR: MySQL did not become ready" >&2
+                return 1
+              }
+            fi
           '';
         };
 
