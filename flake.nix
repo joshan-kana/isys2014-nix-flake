@@ -172,7 +172,8 @@
                 language = "system";
                 pass_filenames = false;
               };
-            }).shellHook}
+            }).shellHook
+            }
             ${runtimeEnv}
 
             if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
