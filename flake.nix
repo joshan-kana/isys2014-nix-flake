@@ -81,6 +81,7 @@
             }
           ];
         };
+        mysqlServicesExe = "${mysqlServices}/bin/mysql-services";
 
         sqlOptions = [
           "--templater=raw"
@@ -165,7 +166,6 @@
             ])
             ++ [
               treefmt.config.build.wrapper
-              mysqlServices
               fmt
               chk
             ];
@@ -176,9 +176,9 @@
 
             if ! mysql -u root -Nse 'USE dswork' >/dev/null 2>&1; then
               mkdir -p "$ISYS2014_RUN_DIR"
-              if ! mysql-services project state >/dev/null 2>&1; then
+              if ! ${mysqlServicesExe} project state >/dev/null 2>&1; then
                 rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
-                mysql-services up --detached >/dev/null
+                ${mysqlServicesExe} up --detached >/dev/null
               fi
               for _ in {1..60}; do
                 mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && break
