@@ -190,9 +190,7 @@
               --files-from=${pkgs.writeText "template-files" (pkgs.lib.concatStringsSep "\n" templateFiles)} \
               ${self.outPath}/ "$root/"
 
-            for path in ${pkgs.lib.escapeShellArgs deletedTemplateFiles}; do
-              rm -f -- "$root/$path"
-            done
+            ${pkgs.lib.concatMapStringsSep "\n" (path: ''rm -f -- "$root/${path}"'') deletedTemplateFiles}
           '';
         };
       in
@@ -252,6 +250,7 @@
         checks = {
           formatting = treefmt.config.build.check self;
           services = mysqlServices;
+          inherit sync;
         };
       }
     )
