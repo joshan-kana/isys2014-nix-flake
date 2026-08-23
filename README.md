@@ -35,7 +35,7 @@ touch .isys2014-practical
 Then update with:
 
 ```bash
-nix run --refresh 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git#sync'
+nix run 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git#sync' --refresh
 direnv allow
 ```
 
