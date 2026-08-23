@@ -8,6 +8,7 @@ without impure evaluation or a custom database supervisor.
 
 - MySQL 8.4, pinned by `flake.lock`
 - Pure `nix develop`, `nix fmt`, and `nix flake check`
+- MySQL started and managed automatically when the development shell activates
 - Per-practical persistent database state under `.state/`
 - Unix-socket-only MySQL with TCP networking disabled
 - An automatically created `dswork` database
@@ -22,7 +23,8 @@ nix flake init -t 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git'
 direnv allow
 ```
 
-Without direnv:
+After that, entering the directory activates the environment through direnv and
+starts MySQL automatically. Without direnv, enter it manually with:
 
 ```bash
 nix develop
@@ -34,21 +36,16 @@ run.
 
 ## MySQL
 
-In one terminal, start the generated MySQL service:
-
-```bash
-mysql-services
-```
-
-Leave it running. In another terminal in the same practical environment, use the
-normal MySQL client:
+There is no database start command to remember. Once the development shell has
+activated, connect directly with the normal MySQL client:
 
 ```bash
 mysql -u root dswork
 ```
 
-With direnv, the second terminal enters the environment automatically. Otherwise,
-run `nix develop` there first.
+The flake starts the per-practical MySQL service in the background, reuses it on
+subsequent shell activations, waits for `dswork` to be ready, and configures the
+client to use the correct Unix socket.
 
 This matches the practical workflow directly. MySQL client commands such as
 `tee` and `source` work normally, for example:
@@ -58,15 +55,15 @@ mysql> tee Prac02Work.out
 mysql> source create_tables.sql;
 ```
 
-Stop MySQL by exiting `mysql-services` with `Ctrl-C`.
-
 Persistent database data stays under `.state/`. MySQL uses a short deterministic
 per-project runtime directory under `/tmp`, avoiding Unix socket path-length
 failures in deeply nested checkouts while keeping practicals isolated. MySQL TCP
 networking remains disabled.
 
 services-flake owns MySQL initialization, including creating `dswork` after the
-server is healthy. process-compose owns process supervision and readiness.
+server is healthy. process-compose owns the background process supervision; its
+control socket and generated runner are implementation details and are not part
+of the practical command interface.
 
 ## Formatting and checks
 
