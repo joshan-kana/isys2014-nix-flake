@@ -32,6 +32,19 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        templateFiles = [
+          ".envrc"
+          ".gitignore"
+          ".vscode/extensions.json"
+          ".vscode/settings.json"
+          ".vscode/tasks.json"
+          "flake.lock"
+          "flake.nix"
+
+          # Deleted template files
+          "scripts/dbctl.sh"
+        ];
+
         globalExcludes = [
           ".direnv"
           ".state"
@@ -151,6 +164,19 @@
           runtimeInputs = [ pkgs.mysql84 ];
           text = ''exec mysql -u root dswork "$@"'';
         };
+        sync = pkgs.writeShellApplication {
+          name = "sync";
+          runtimeInputs = [
+            pkgs.git
+            pkgs.rsync
+          ];
+          text = ''
+            root="$(git rev-parse --show-toplevel)"
+            rsync -rltp --chmod=u+w --delete-missing-args \
+              --files-from=${pkgs.writeText "template-files" (pkgs.lib.concatStringsSep "\n" templateFiles)} \
+              ${self.outPath}/ "$root/"
+          '';
+        };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -204,6 +230,7 @@
 
         formatter = treefmt.config.build.wrapper;
         packages.check = check;
+        packages.sync = sync;
         checks = {
           formatting = treefmt.config.build.check self;
           services = mysqlServices;

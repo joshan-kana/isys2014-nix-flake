@@ -21,6 +21,15 @@ git commit -m "initialised"
 
 After that, entering the directory activates the development environment automatically.
 
+## Update
+
+Update an existing practical from the latest template:
+
+```bash
+nix run 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git#sync'
+direnv allow
+```
+
 Without direnv:
 
 ```bash
