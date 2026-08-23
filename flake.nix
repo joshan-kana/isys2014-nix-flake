@@ -54,18 +54,11 @@
           modules = [
             services-flake.processComposeModules.default
             {
-              cli = {
-                environment.PC_SOCKET_PATH = "$ISYS2014_RUN_DIR/process-compose.sock";
-                options = {
-                  no-server = false;
-                  use-uds = true;
-                };
-                preHook = ''
-                  ${runtimeEnv}
-                  mkdir -p "$ISYS2014_RUN_DIR"
-                  cd "$ISYS2014_ROOT"
-                '';
-              };
+              cli.preHook = ''
+                ${runtimeEnv}
+                mkdir -p "$ISYS2014_RUN_DIR"
+                cd "$ISYS2014_ROOT"
+              '';
               services.mysql.mysql = {
                 enable = true;
                 package = pkgs.mysql84;
@@ -76,7 +69,6 @@
                   "skip-networking" = true;
                   "skip-log-bin" = true;
                   mysqlx = "OFF";
-                  "innodb-buffer-pool-size" = "64M";
                 };
               };
             }
@@ -159,7 +151,6 @@
         devShells.default = pkgs.mkShell {
           packages =
             (with pkgs; [
-              less
               mysql84
               nixd
               nixfmt
@@ -175,7 +166,7 @@
           shellHook = ''
             ${preCommit.shellHook}
             ${runtimeEnv}
-            echo "ISYS2014 ready. Start MySQL with 'mysql-services up --detached'."
+            echo "ISYS2014 ready. Run 'mysql-services' to start MySQL."
           '';
         };
 
