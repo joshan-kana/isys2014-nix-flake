@@ -31,6 +31,7 @@ need both files created once from the practical root:
 ```bash
 touch .isys2014-practical
 printf '_: _final: _prev:\n{ }\n' > overrides.nix
+git add overrides.nix
 ```
 
 Then update with:
