@@ -1,4 +1,4 @@
-name: Validate foreground MySQL
+name: Validate automatic MySQL
 
 on:
   push:
@@ -26,41 +26,21 @@ jobs:
       - name: Check pure flake
         run: nix flake check
 
-      - name: Test foreground MySQL workflow
+      - name: Test automatic MySQL management
         run: |
           nix develop -c bash -euc '
-            root="$PWD"
-            mkdir -p nested/work
-            cd nested/work
-
-            test "$ISYS2014_ROOT" = "$root"
+            command -v mysql
+            ! command -v mysql-services
             [[ "$MYSQL_UNIX_PORT" == /tmp/isys2014-*/mysql.sock ]]
-
-            mysql-services up -t=false >/tmp/mysql-services.log 2>&1 &
-            services_pid=$!
-            trap "kill $services_pid >/dev/null 2>&1 || true; wait $services_pid >/dev/null 2>&1 || true" EXIT
-
-            ready=false
-            for _ in $(seq 1 30); do
-              if mysql -u root -Nse "USE dswork" >/dev/null 2>&1; then
-                ready=true
-                break
-              fi
-              sleep 1
-            done
-            if [[ "$ready" != true ]]; then
-              cat /tmp/mysql-services.log
-              exit 1
-            fi
-
-            printf "%s\n" "CREATE TABLE smoke_test (id INT);" >/tmp/isys2014-smoke.sql
-            mysql -u root dswork -e "source /tmp/isys2014-smoke.sql;"
-            test "$(mysql -u root dswork -Nse "SHOW TABLES LIKE \"smoke_test\";")" = smoke_test
             test -S "$MYSQL_UNIX_PORT"
+            mysql -u root -Nse "USE dswork"
+            mysql -u root dswork -e "CREATE TABLE activation_test (id INT);"
+          '
 
-            kill "$services_pid"
-            wait "$services_pid" || true
-            trap - EXIT
+          nix develop -c bash -euc '
+            ! command -v mysql-services
+            mysql -u root -Nse "USE dswork"
+            test "$(mysql -u root dswork -Nse "SHOW TABLES LIKE \"activation_test\";")" = activation_test
           '
 
       - name: Check diff
