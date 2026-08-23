@@ -13,7 +13,7 @@ direnv allow
 
 After that, entering the directory activates the development environment automatically.
 
-If you are not using direnv, enter it manually with:
+Without direnv:
 
 ```bash
 nix develop
@@ -21,21 +21,20 @@ nix develop
 
 ## MySQL
 
-The database is started and managed automatically with the development environment.
-Connect directly with:
+Connect with:
 
 ```bash
 mysql -u root dswork
 ```
 
-Normal MySQL client commands used in the practicals work as expected, including:
+MySQL client commands used in the practicals work normally, including:
 
 ```text
 mysql> tee Prac02Work.out
 mysql> source create_tables.sql;
 ```
 
-Your database state is kept between development-shell activations for the same practical.
+Database state is preserved for the practical.
 
 ## Formatting and checks
 
@@ -45,17 +44,15 @@ Format supported files with:
 nix fmt
 ```
 
-Run the full read-only repository checks with:
+Run the repository checks with:
 
 ```bash
 nix flake check
 ```
 
-The development shell also provides the shorter aliases:
+Short aliases are also available:
 
 ```bash
 fmt
 chk
 ```
-
-The pre-commit hook runs the same checks before a commit is accepted.
