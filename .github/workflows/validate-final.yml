@@ -1,0 +1,22 @@
+name: Validate final checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+
+      - name: Verify final state
+        run: |
+          nix fmt
+          git diff --exit-code
+          nix flake check
