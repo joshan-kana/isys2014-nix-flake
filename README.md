@@ -16,7 +16,7 @@ After that, entering the directory activates the development environment automat
 Without direnv:
 
 ```bash
-nix develop
+nix develop -c $SHELL
 ```
 
 ## MySQL
