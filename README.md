@@ -11,6 +11,13 @@ nix flake init -t 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git'
 direnv allow
 ```
 
+Optionally: set up a git repository
+
+```bash
+git init
+git commit -a -m "initialised"
+```
+
 After that, entering the directory activates the development environment automatically.
 
 Without direnv:
