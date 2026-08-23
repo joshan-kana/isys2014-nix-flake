@@ -15,7 +15,8 @@ Optionally: set up a git repository
 
 ```bash
 git init
-git commit -a -m "initialised"
+git add .
+git commit -m "initialised"
 ```
 
 After that, entering the directory activates the development environment automatically.
