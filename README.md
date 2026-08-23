@@ -44,15 +44,20 @@ Format supported files with:
 nix fmt
 ```
 
-Run the repository checks with:
-
-```bash
-nix flake check
-```
-
-Short aliases are also available:
+or:
 
 ```bash
 fmt
+```
+
+Check staged files with:
+
+```bash
 chk
+```
+
+Run the full repository checks with:
+
+```bash
+nix flake check
 ```
