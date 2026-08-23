@@ -33,9 +33,9 @@
         pkgs = nixpkgs.legacyPackages.${system};
 
         globalExcludes = [
-          ".direnv/**"
-          ".state/**"
-          "unit_materials/**"
+          ".direnv"
+          ".state"
+          "unit_materials"
         ];
 
         runtimeEnv = ''
@@ -108,7 +108,7 @@
             typos.enable = true;
           };
           settings = {
-            global.excludes = globalExcludes;
+            global.excludes = map (dir: "${dir}/**") globalExcludes;
             formatter = {
               statix.priority = 1;
               deadnix.priority = 2;
