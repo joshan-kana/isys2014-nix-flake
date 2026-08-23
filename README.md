@@ -34,17 +34,21 @@ run.
 
 ## MySQL
 
-Start the generated MySQL service:
+In one terminal, start the generated MySQL service:
 
 ```bash
-mysql-services up --detached
+mysql-services
 ```
 
-Then use the normal MySQL client:
+Leave it running. In another terminal in the same practical environment, use the
+normal MySQL client:
 
 ```bash
 mysql -u root dswork
 ```
+
+With direnv, the second terminal enters the environment automatically. Otherwise,
+run `nix develop` there first.
 
 This matches the practical workflow directly. MySQL client commands such as
 `tee` and `source` work normally, for example:
@@ -54,16 +58,12 @@ mysql> tee Prac02Work.out
 mysql> source create_tables.sql;
 ```
 
-Stop the service with:
+Stop MySQL by exiting `mysql-services` with `Ctrl-C`.
 
-```bash
-mysql-services down
-```
-
-Persistent database data stays under `.state/`. MySQL and process-compose use a
-short deterministic per-project runtime directory under `/tmp`, avoiding Unix
-socket path-length failures in deeply nested checkouts while keeping practicals
-isolated. MySQL TCP networking remains disabled.
+Persistent database data stays under `.state/`. MySQL uses a short deterministic
+per-project runtime directory under `/tmp`, avoiding Unix socket path-length
+failures in deeply nested checkouts while keeping practicals isolated. MySQL TCP
+networking remains disabled.
 
 services-flake owns MySQL initialization, including creating `dswork` after the
 server is healthy. process-compose owns process supervision and readiness.
