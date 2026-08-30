@@ -11,7 +11,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     pre-commit-hooks = {
-      url = "github:cachix/pre-commit-hooks.nix";
+      url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -56,6 +56,10 @@
           ".state"
           "unit_materials"
         ];
+
+        gitPathspecExcludeArgs = lib.concatMapStringsSep " " (
+          dir: lib.escapeShellArg ":(exclude)${dir}/**"
+        ) globalExcludes;
 
         runtimeEnv = ''
           root="''${ISYS2014_ROOT:-$PWD}"
@@ -116,9 +120,19 @@
             programs = {
               deadnix.enable = true;
               nixfmt.enable = true;
+              prettier = {
+                enable = true;
+                excludes = [ "*.md" ];
+              };
               rumdl-check.enable = true;
               rumdl-format.enable = true;
-              shellcheck.enable = true;
+              shellcheck = {
+                enable = true;
+                includes = [
+                  ".envrc"
+                  "**/*.sh"
+                ];
+              };
               sqlfluff = {
                 enable = true;
                 dialect = "mysql";
@@ -128,34 +142,27 @@
               typos.enable = true;
             };
             settings = {
-              global.excludes = map (dir: "${dir}/**") globalExcludes;
+              excludes = map (dir: "${dir}/**") globalExcludes;
               formatter = {
                 statix.priority = 1;
-                deadnix.priority = 2;
-                nixfmt.priority = 3;
-                rumdl-format = {
-                  options = markdownOptions;
-                  priority = 1;
-                };
+                nixfmt.priority = 2;
+                rumdl-format.options = markdownOptions;
                 rumdl-check = {
                   options = markdownOptions;
                   priority = 2;
                 };
                 typos = {
                   includes = [ "*.md" ];
-                  priority = 3;
+                  priority = 1;
                 };
                 shellcheck.options = [
                   "-s"
                   "bash"
                 ];
-                sqlfluff = {
-                  options = sqlOptions;
-                  priority = 1;
-                };
+                sqlfluff.options = sqlOptions;
                 sqlfluff-lint = {
                   options = sqlOptions;
-                  priority = 2;
+                  priority = 1;
                 };
               };
             };
@@ -179,12 +186,23 @@
             shellHook = ''
               ${(pre-commit-hooks.lib.${system}.run {
                 src = self;
-                hooks.nix-flake-check = {
-                  enable = true;
-                  name = "nix flake check";
-                  entry = "nix flake check";
-                  language = "system";
-                  pass_filenames = false;
+                hooks = {
+                  repo-quality = {
+                    enable = true;
+                    name = "Repository formatting and linting";
+                    entry = "nix build --no-link .#checks.${system}.repo-quality";
+                    files = "\\.(json|lock|md|nix|sh|sql)$|^\\.envrc$";
+                    excludes = map (dir: "^${lib.escapeRegex dir}/") globalExcludes;
+                    pass_filenames = false;
+                  };
+
+                  staged-whitespace = {
+                    enable = true;
+                    name = "Staged whitespace";
+                    entry = "${pkgs.lib.getExe pkgs.git} diff --check --cached -- . ${gitPathspecExcludeArgs}";
+                    pass_filenames = false;
+                    always_run = true;
+                  };
                 };
               }).shellHook
               }
@@ -216,11 +234,9 @@
         config = (lib.makeExtensible baseConfig).extend overrides;
         inherit (config) treefmt;
 
-        check = pkgs.writeShellApplication {
-          name = "check";
-          runtimeInputs = [ pkgs.pre-commit ];
-          text = ''exec pre-commit run nix-flake-check "$@"'';
-        };
+        check = pkgs.writeShellScriptBin "check" ''
+          exec nix flake check "$@"
+        '';
         db = pkgs.writeShellApplication {
           name = "db";
           runtimeInputs = [ pkgs.mysql84 ];
@@ -259,6 +275,7 @@
         packages.check = check;
         packages.sync = sync;
         checks = {
+          repo-quality = treefmt.config.build.check self;
           formatting = treefmt.config.build.check self;
           services = mysqlServices;
           inherit sync;
