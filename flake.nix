@@ -214,7 +214,7 @@
                   ${mysqlServicesExe} process start mysql >/dev/null
                 else
                   rm -f "$ISYS2014_RUN_DIR/process-compose.sock"
-                  ${mysqlServicesExe} up --detached >/dev/null
+                  ${mysqlServicesExe} up --detached 3>&- >/dev/null
                 fi
                 for _ in {1..60}; do
                   mysql -u root -Nse 'USE dswork' >/dev/null 2>&1 && break
