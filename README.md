@@ -7,7 +7,7 @@ Nix flake for ISYS2014 Database Systems practicals.
 Create a practical directory from the template:
 
 ```bash
-nix flake init -t 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git' --refresh
+nix flake init -t github:joshan-kana/isys2014-nix-flake --refresh
 direnv allow
 ```
 
@@ -37,7 +37,7 @@ git add overrides.nix
 Then update with:
 
 ```bash
-nix run 'git+ssh://git@github.com/joshan-kana/isys2014-nix-flake.git#sync' --refresh
+nix run github:joshan-kana/isys2014-nix-flake#sync --refresh
 direnv allow
 ```
 
